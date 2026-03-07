@@ -15,7 +15,8 @@ import holoviews as hv
 import numpy as np
 import pandas as pd
 import panel as pn
-from mcp.types import EmbeddedResource, ImageContent, TextContent, TextResourceContents
+import hvplot.pandas  # noqa: F401
+from mcp.types import EmbeddedResource, TextContent, TextResourceContents
 
 from ..rendering import render_to_png
 from ..state import state
@@ -87,18 +88,21 @@ def create_streaming_plot(
         dataset_name or "generated",
     )
 
-    return [
+    result: list = [
         TextContent(type="text", text=(
             f"Created streaming visualization '{plot_id}'. "
             f"The HTML output updates live every {update_interval}ms — "
             f"open it in a browser to see the animation."
         )),
-        ImageContent(type="image", data=base64.b64encode(png_bytes).decode(), mimeType="image/png"),
-        EmbeddedResource(
-            type="resource",
-            resource=TextResourceContents(uri=f"viz://plots/{plot_id}", mimeType="text/html", text=html),
-        ),
     ]
+    if png_bytes is not None:
+        from mcp.types import ImageContent
+        result.append(ImageContent(type="image", data=base64.b64encode(png_bytes).decode(), mimeType="image/png"))
+    result.append(EmbeddedResource(
+        type="resource",
+        resource=TextResourceContents(uri=f"viz://plots/{plot_id}", mimeType="text/html", text=html),
+    ))
+    return result
 
 
 def _build_streaming_html(

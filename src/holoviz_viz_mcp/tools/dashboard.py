@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import base64
 
-from mcp.types import EmbeddedResource, ImageContent, TextContent, TextResourceContents
+from mcp.types import EmbeddedResource, TextContent, TextResourceContents
 
-from ..rendering import render_layout_to_html, render_to_png
+from ..rendering import build_viz_response, render_layout_to_html, render_to_png
 from ..state import state
 
 import holoviews as hv
@@ -42,7 +42,6 @@ def create_dashboard(
     else:
         combined = hv.Layout(plots).cols(1)
     combined = combined.opts(title=title)
-    png_bytes = render_to_png(combined, width=800, height=400 * len(plots))
 
     # Interactive HTML via Panel layout (with optional template)
     html = render_layout_to_html(
@@ -50,25 +49,32 @@ def create_dashboard(
     )
 
     style_note = f" [{template_style} template]" if template_style else ""
-    return [
+    result: list = [
         TextContent(
             type="text",
             text=f"Created dashboard '{title}' with {len(ids)} plots ({layout} layout{style_note})",
         ),
-        ImageContent(
+    ]
+
+    png_bytes = render_to_png(combined, width=800, height=400 * len(plots))
+    if png_bytes is not None:
+        from mcp.types import ImageContent
+        result.append(ImageContent(
             type="image",
             data=base64.b64encode(png_bytes).decode(),
             mimeType="image/png",
+        ))
+
+    result.append(EmbeddedResource(
+        type="resource",
+        resource=TextResourceContents(
+            uri=f"viz://dashboard/{title.lower().replace(' ', '-')}",
+            mimeType="text/html",
+            text=html,
         ),
-        EmbeddedResource(
-            type="resource",
-            resource=TextResourceContents(
-                uri=f"viz://dashboard/{title.lower().replace(' ', '-')}",
-                mimeType="text/html",
-                text=html,
-            ),
-        ),
-    ]
+    ))
+
+    return result
 
 
 def get_plot_html(plot_id: str) -> str:

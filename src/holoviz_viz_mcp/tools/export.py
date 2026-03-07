@@ -41,6 +41,8 @@ def export_plot(
 
     elif format == "png":
         png_bytes = render_to_png(obj, width=w, height=h)
+        if png_bytes is None:
+            return [TextContent(type="text", text="PNG export unavailable (no headless browser). Use 'html' format instead.")]
         b64 = base64.b64encode(png_bytes).decode()
         return [
             TextContent(type="text", text=(

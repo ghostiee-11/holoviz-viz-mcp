@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-import base64
 from typing import Any
 
 import holoviews as hv
 import numpy as np
-from mcp.types import EmbeddedResource, ImageContent, TextContent, TextResourceContents
+from mcp.types import TextContent
 
-from ..rendering import render_to_html, render_to_png
+from ..rendering import build_viz_response
 from ..state import state
 
 
@@ -95,21 +94,11 @@ def annotate_plot(
     annotated = base_obj * overlay
     state.save_plot(annotated, {**version["spec"], "annotation": annotation_type}, version["data_ref"], plot_id=plot_id)
 
-    png_bytes = render_to_png(annotated)
-    html = render_to_html(annotated)
-
     desc = f"Added {annotation_type} annotation to '{plot_id}'"
     if label:
         desc += f": '{label}'"
 
-    return [
-        TextContent(type="text", text=desc),
-        ImageContent(type="image", data=base64.b64encode(png_bytes).decode(), mimeType="image/png"),
-        EmbeddedResource(
-            type="resource",
-            resource=TextResourceContents(uri=f"viz://plots/{plot_id}", mimeType="text/html", text=html),
-        ),
-    ]
+    return build_viz_response(annotated, text=desc, uri=f"viz://plots/{plot_id}")
 
 
 def overlay_plots(
@@ -138,14 +127,7 @@ def overlay_plots(
     combined = combined.opts(title=title)
     plot_id = state.save_plot(combined, {"type": "overlay", "sources": ids}, ids[0])
 
-    png_bytes = render_to_png(combined)
-    html = render_to_html(combined)
-
-    return [
-        TextContent(type="text", text=f"Created overlay '{plot_id}' from {len(ids)} plots."),
-        ImageContent(type="image", data=base64.b64encode(png_bytes).decode(), mimeType="image/png"),
-        EmbeddedResource(
-            type="resource",
-            resource=TextResourceContents(uri=f"viz://plots/{plot_id}", mimeType="text/html", text=html),
-        ),
-    ]
+    return build_viz_response(
+        combined, text=f"Created overlay '{plot_id}' from {len(ids)} plots.",
+        uri=f"viz://plots/{plot_id}",
+    )

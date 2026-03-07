@@ -6,15 +6,14 @@ all other views in real time. Not possible with raw BokehJS output.
 
 from __future__ import annotations
 
-import base64
 from typing import Any
 
 import holoviews as hv
 import hvplot.pandas  # noqa: F401
 from holoviews.selection import link_selections
-from mcp.types import EmbeddedResource, ImageContent, TextContent, TextResourceContents
+from mcp.types import TextContent
 
-from ..rendering import render_to_html, render_to_png
+from ..rendering import build_viz_response
 from ..state import state
 
 
@@ -62,17 +61,13 @@ def create_crossfilter(
     linked = link_selections(layout)
 
     plot_id = state.save_plot(linked, {"type": "crossfilter", "views": views, "color_by": color_by}, dataset_name)
-    png_bytes = render_to_png(linked, width=800, height=400)
-    html = render_to_html(linked, width=900, height=500)
 
-    return [
-        TextContent(type="text", text=(
+    return build_viz_response(
+        linked,
+        text=(
             f"Created crossfilter '{plot_id}' with {len(plots)} linked views. "
             f"Select/brush in any plot to filter all others in real time."
-        )),
-        ImageContent(type="image", data=base64.b64encode(png_bytes).decode(), mimeType="image/png"),
-        EmbeddedResource(
-            type="resource",
-            resource=TextResourceContents(uri=f"viz://plots/{plot_id}", mimeType="text/html", text=html),
         ),
-    ]
+        uri=f"viz://plots/{plot_id}",
+        width=900, height=500,
+    )

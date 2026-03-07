@@ -7,16 +7,15 @@ No competitor MCP has anything like this.
 
 from __future__ import annotations
 
-import base64
 from typing import Any
 
 import holoviews as hv
 import hvplot.pandas  # noqa: F401
 import numpy as np
 import pandas as pd
-from mcp.types import EmbeddedResource, ImageContent, TextContent, TextResourceContents
+from mcp.types import TextContent
 
-from ..rendering import render_to_html, render_to_png
+from ..rendering import build_viz_response
 from ..state import state
 
 
@@ -186,20 +185,12 @@ def auto_eda(
 
     plot_id = state.save_plot(layout, {"type": "auto_eda", "dataset": dataset_name}, dataset_name)
 
-    png_bytes = render_to_png(layout, width=900, height=400 * ((len(plots) + 2) // 3))
-    html = render_to_html(layout, width=900, height=400 * ((len(plots) + 2) // 3))
-
     narrative = "\n".join(insights)
+    h = 400 * ((len(plots) + 2) // 3)
 
-    return [
-        TextContent(type="text", text=f"Auto-EDA complete for '{dataset_name}' — {len(plots)} visualizations generated.\n\n{narrative}"),
-        ImageContent(type="image", data=base64.b64encode(png_bytes).decode(), mimeType="image/png"),
-        EmbeddedResource(
-            type="resource",
-            resource=TextResourceContents(
-                uri=f"viz://eda/{dataset_name}",
-                mimeType="text/html",
-                text=html,
-            ),
-        ),
-    ]
+    return build_viz_response(
+        layout,
+        text=f"Auto-EDA complete for '{dataset_name}' — {len(plots)} visualizations generated.\n\n{narrative}",
+        uri=f"viz://eda/{dataset_name}",
+        width=900, height=h,
+    )

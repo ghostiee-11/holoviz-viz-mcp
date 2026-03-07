@@ -6,15 +6,14 @@ that brings a regular plotting library to its knees. No competitor MCP can do th
 
 from __future__ import annotations
 
-import base64
 from typing import Any
 
 import holoviews as hv
 import numpy as np
 import pandas as pd
-from mcp.types import EmbeddedResource, ImageContent, TextContent, TextResourceContents
+from mcp.types import TextContent
 
-from ..rendering import render_to_html, render_to_png
+from ..rendering import build_viz_response
 from ..state import state
 
 
@@ -82,25 +81,15 @@ def create_datashader_plot(
     }
     plot_id = state.save_plot(plot, spec, dataset_name)
 
-    png_bytes = render_to_png(plot, width=width, height=height)
-    html = render_to_html(plot, width=width, height=height)
-
-    return [
-        TextContent(
-            type="text",
-            text=(
-                f"Created datashader plot '{plot_id}' for {len(df):,} points. "
-                f"Datashade rendering aggregates density — hover for details."
-            ),
+    return build_viz_response(
+        plot,
+        text=(
+            f"Created datashader plot '{plot_id}' for {len(df):,} points. "
+            f"Datashade rendering aggregates density — hover for details."
         ),
-        ImageContent(type="image", data=base64.b64encode(png_bytes).decode(), mimeType="image/png"),
-        EmbeddedResource(
-            type="resource",
-            resource=TextResourceContents(
-                uri=f"viz://plots/{plot_id}", mimeType="text/html", text=html,
-            ),
-        ),
-    ]
+        uri=f"viz://plots/{plot_id}",
+        width=width, height=height,
+    )
 
 
 def generate_large_dataset(

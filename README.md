@@ -42,11 +42,16 @@ One line. Standalone HTML. All Bokeh JS/CSS inlined. No server. No CDN. Open in 
 
 ## Quick start
 
+**Copy-paste these 4 lines to get started:**
+
 ```bash
 git clone https://github.com/ghostiee-11/holoviz-viz-mcp.git
 cd holoviz-viz-mcp
-pip install -e ".[test]"
+pip install -e .
+claude mcp add holoviz-viz -- holoviz-viz-mcp
 ```
+
+That's it — restart your AI client and start asking for visualizations.
 
 ### One-command setup for any AI client
 

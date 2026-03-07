@@ -6,16 +6,15 @@ of analysis a data engineer does before any ML pipeline.
 
 from __future__ import annotations
 
-import base64
 from typing import Any
 
 import holoviews as hv
 import hvplot.pandas  # noqa: F401
 import numpy as np
 import pandas as pd
-from mcp.types import EmbeddedResource, ImageContent, TextContent, TextResourceContents
+from mcp.types import TextContent
 
-from ..rendering import render_to_html, render_to_png
+from ..rendering import build_viz_response
 from ..state import state
 
 
@@ -222,21 +221,12 @@ def data_quality_report(
 
     layout = hv.Layout(plots).cols(min(len(plots), 2))
     plot_id = state.save_plot(layout, {"type": "data_quality", "dataset": dataset_name}, dataset_name)
-    png_bytes = render_to_png(layout, width=900, height=400)
-    html = render_to_html(layout, width=900, height=400)
 
-    return [
-        TextContent(type="text", text=narrative),
-        ImageContent(type="image", data=base64.b64encode(png_bytes).decode(), mimeType="image/png"),
-        EmbeddedResource(
-            type="resource",
-            resource=TextResourceContents(
-                uri=f"viz://quality/{dataset_name}",
-                mimeType="text/html",
-                text=html,
-            ),
-        ),
-    ]
+    return build_viz_response(
+        layout, text=narrative,
+        uri=f"viz://quality/{dataset_name}",
+        width=900, height=400,
+    )
 
 
 def compare_datasets(

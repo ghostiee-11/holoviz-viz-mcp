@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-import base64
 from typing import Any
 
 import holoviews as hv
 import hvplot.pandas  # noqa: F401
-from mcp.types import EmbeddedResource, ImageContent, TextContent, TextResourceContents
 
-from ..rendering import render_to_html, render_to_png
+from ..rendering import build_viz_response, render_to_html, render_to_png
 from ..state import state
 
 
@@ -89,26 +87,11 @@ def create_plot(
     plot = _build_hvplot(df, spec)
     plot_id = state.save_plot(plot, spec, dataset_name)
 
-    # Dual output: PNG for inline preview + HTML for interactivity
-    png_bytes = render_to_png(plot)
-    html = render_to_html(plot)
-
-    return [
-        TextContent(type="text", text=f"Created plot '{plot_id}' ({plot_type}: {x}{f' vs {y}' if y else ''})"),
-        ImageContent(
-            type="image",
-            data=base64.b64encode(png_bytes).decode(),
-            mimeType="image/png",
-        ),
-        EmbeddedResource(
-            type="resource",
-            resource=TextResourceContents(
-                uri=f"viz://plots/{plot_id}",
-                mimeType="text/html",
-                text=html,
-            ),
-        ),
-    ]
+    return build_viz_response(
+        plot,
+        text=f"Created plot '{plot_id}' ({plot_type}: {x}{f' vs {y}' if y else ''})",
+        uri=f"viz://plots/{plot_id}",
+    )
 
 
 def modify_plot(
@@ -174,25 +157,12 @@ def modify_plot(
 
     state.save_plot(obj, spec, version["data_ref"], plot_id=plot_id)
 
-    png_bytes = render_to_png(obj, width=w, height=h)
-    html = render_to_html(obj, width=w, height=h)
-
-    return [
-        TextContent(type="text", text=f"Modified plot '{plot_id}'"),
-        ImageContent(
-            type="image",
-            data=base64.b64encode(png_bytes).decode(),
-            mimeType="image/png",
-        ),
-        EmbeddedResource(
-            type="resource",
-            resource=TextResourceContents(
-                uri=f"viz://plots/{plot_id}",
-                mimeType="text/html",
-                text=html,
-            ),
-        ),
-    ]
+    return build_viz_response(
+        obj,
+        text=f"Modified plot '{plot_id}'",
+        uri=f"viz://plots/{plot_id}",
+        width=w, height=h,
+    )
 
 
 def undo_plot(plot_id: str) -> list:
@@ -202,25 +172,12 @@ def undo_plot(plot_id: str) -> list:
         plot_id: ID of the plot to undo
     """
     version = state.undo_plot(plot_id)
-    png_bytes = render_to_png(version["obj"])
-    html = render_to_html(version["obj"])
 
-    return [
-        TextContent(type="text", text=f"Reverted plot '{plot_id}' to previous version"),
-        ImageContent(
-            type="image",
-            data=base64.b64encode(png_bytes).decode(),
-            mimeType="image/png",
-        ),
-        EmbeddedResource(
-            type="resource",
-            resource=TextResourceContents(
-                uri=f"viz://plots/{plot_id}",
-                mimeType="text/html",
-                text=html,
-            ),
-        ),
-    ]
+    return build_viz_response(
+        version["obj"],
+        text=f"Reverted plot '{plot_id}' to previous version",
+        uri=f"viz://plots/{plot_id}",
+    )
 
 
 def execute_code(code: str, dataset_name: str | None = None) -> list:
@@ -239,6 +196,7 @@ def execute_code(code: str, dataset_name: str | None = None) -> list:
     import numpy as np
     import pandas as pd
     import panel as pn
+    from mcp.types import TextContent
 
     namespace: dict[str, Any] = {
         "pd": pd, "np": np, "hv": hv, "pn": pn,
@@ -255,25 +213,12 @@ def execute_code(code: str, dataset_name: str | None = None) -> list:
         return [TextContent(type="text", text="Code executed but no `result` variable was assigned.")]
 
     plot_id = state.save_plot(result, {"type": "custom_code"}, dataset_name or "code")
-    png_bytes = render_to_png(result)
-    html = render_to_html(result)
 
-    return [
-        TextContent(type="text", text=f"Custom visualization '{plot_id}' created via code execution"),
-        ImageContent(
-            type="image",
-            data=base64.b64encode(png_bytes).decode(),
-            mimeType="image/png",
-        ),
-        EmbeddedResource(
-            type="resource",
-            resource=TextResourceContents(
-                uri=f"viz://plots/{plot_id}",
-                mimeType="text/html",
-                text=html,
-            ),
-        ),
-    ]
+    return build_viz_response(
+        result,
+        text=f"Custom visualization '{plot_id}' created via code execution",
+        uri=f"viz://plots/{plot_id}",
+    )
 
 
 def list_plots() -> str:

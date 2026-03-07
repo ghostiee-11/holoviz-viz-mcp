@@ -1,29 +1,101 @@
-"""Rendering pipeline: HoloViews/hvPlot objects → PNG bytes or standalone HTML."""
+"""Rendering pipeline: HoloViews/hvPlot objects -> PNG bytes or standalone HTML."""
 
 from __future__ import annotations
 
+import base64
 import io
+import logging
 from typing import Any
 
-import panel as pn
+from mcp.types import EmbeddedResource, ImageContent, TextContent, TextResourceContents
+
+logger = logging.getLogger(__name__)
+
+# Cached flag: can we render PNGs? (requires browser + webdriver)
+_png_available: bool | None = None
 
 
-def render_to_png(hv_obj: Any, width: int = 700, height: int = 450) -> bytes:
-    """Render a HoloViews/hvPlot object to PNG bytes via Panel."""
-    p = pn.pane.HoloViews(hv_obj, width=width, height=height)
-    buf = io.BytesIO()
-    p.save(buf, fmt="png")
-    buf.seek(0)
-    return buf.read()
+def _ensure_extensions() -> None:
+    from .server import _init_extensions
+    _init_extensions()
+
+
+def _check_png_support() -> bool:
+    """Test once whether PNG export works (needs browser + webdriver)."""
+    global _png_available
+    if _png_available is not None:
+        return _png_available
+    try:
+        import holoviews as hv
+        renderer = hv.Store.renderers["bokeh"]
+        curve = hv.Curve([(0, 0), (1, 1)])
+        renderer(curve, fmt="png")
+        _png_available = True
+    except Exception:
+        _png_available = False
+        logger.info("PNG export unavailable (no browser/webdriver); using HTML only")
+    return _png_available
+
+
+def render_to_png(hv_obj: Any, width: int = 700, height: int = 450) -> bytes | None:
+    """Render a HoloViews/hvPlot object to PNG bytes.
+
+    Returns None if PNG export is not available (no headless browser).
+    """
+    _ensure_extensions()
+    if not _check_png_support():
+        return None
+    try:
+        import holoviews as hv
+        renderer = hv.Store.renderers["bokeh"]
+        png_data, _ = renderer(hv_obj.opts(width=width, height=height), fmt="png")
+        return png_data
+    except Exception as exc:
+        logger.warning("PNG rendering failed: %s", exc)
+        return None
+
+
+def build_viz_response(
+    hv_obj: Any,
+    text: str,
+    uri: str,
+    width: int = 700,
+    height: int = 450,
+) -> list:
+    """Build standard MCP tool response: text + optional PNG + interactive HTML.
+
+    Used by all visualization tools for consistent output. Gracefully skips
+    PNG when no headless browser is available.
+    """
+    _ensure_extensions()
+    result: list = [TextContent(type="text", text=text)]
+
+    png_bytes = render_to_png(hv_obj, width=width, height=height)
+    if png_bytes is not None:
+        result.append(ImageContent(
+            type="image",
+            data=base64.b64encode(png_bytes).decode(),
+            mimeType="image/png",
+        ))
+
+    html = render_to_html(hv_obj, width=width, height=height)
+    result.append(EmbeddedResource(
+        type="resource",
+        resource=TextResourceContents(uri=uri, mimeType="text/html", text=html),
+    ))
+
+    return result
 
 
 def render_to_html(hv_obj: Any, width: int = 700, height: int = 450) -> str:
     """Render a HoloViews/hvPlot object to standalone interactive HTML.
 
     Uses Panel's embed mode to produce a self-contained HTML document with
-    all Bokeh JS/CSS inlined — no external server needed. This is the key
-    differentiator: real Panel rendering, not hand-rolled BokehJS.
+    all Bokeh JS/CSS inlined — no external server needed.
     """
+    _ensure_extensions()
+    import panel as pn
+
     p = pn.pane.HoloViews(hv_obj, width=width, height=height)
     buf = io.StringIO()
     p.save(buf, embed=True)
@@ -37,15 +109,10 @@ def render_layout_to_html(
     width: int = 800,
     template_style: str | None = None,
 ) -> str:
-    """Render multiple HoloViews objects as a Panel layout to HTML.
+    """Render multiple HoloViews objects as a Panel layout to HTML."""
+    _ensure_extensions()
+    import panel as pn
 
-    Args:
-        panels: List of HoloViews objects to render
-        layout: Layout type — 'column', 'row', 'tabs', 'grid'
-        title: Dashboard title
-        width: Width in pixels
-        template_style: Dashboard template — None (simple), 'material', 'bootstrap', 'fast'
-    """
     panes = [pn.pane.HoloViews(obj) for obj in panels]
 
     if template_style in ("material", "bootstrap", "fast"):

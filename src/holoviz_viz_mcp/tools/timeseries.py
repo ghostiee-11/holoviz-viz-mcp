@@ -6,16 +6,15 @@ rolling averages, seasonality detection — with automatic visualizations.
 
 from __future__ import annotations
 
-import base64
 from typing import Any
 
 import holoviews as hv
 import hvplot.pandas  # noqa: F401
 import numpy as np
 import pandas as pd
-from mcp.types import EmbeddedResource, ImageContent, TextContent, TextResourceContents
+from mcp.types import TextContent
 
-from ..rendering import render_to_html, render_to_png
+from ..rendering import build_viz_response
 from ..state import state
 
 
@@ -188,16 +187,10 @@ def time_series_analysis(
         return [TextContent(type="text", text=narrative)]
 
     plot_id = state.save_plot(plot_obj, {"type": "timeseries", "analysis": analysis}, dataset_name)
-    png_bytes = render_to_png(plot_obj, width=700, height=500)
-    html = render_to_html(plot_obj, width=700, height=500)
 
-    return [
-        TextContent(type="text", text=f"Time series analysis complete.\n\n{narrative}"),
-        ImageContent(type="image", data=base64.b64encode(png_bytes).decode(), mimeType="image/png"),
-        EmbeddedResource(
-            type="resource",
-            resource=TextResourceContents(
-                uri=f"viz://timeseries/{dataset_name}", mimeType="text/html", text=html,
-            ),
-        ),
-    ]
+    return build_viz_response(
+        plot_obj,
+        text=f"Time series analysis complete.\n\n{narrative}",
+        uri=f"viz://timeseries/{dataset_name}",
+        width=700, height=500,
+    )

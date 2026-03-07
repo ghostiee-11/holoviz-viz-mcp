@@ -11,14 +11,22 @@ Architecture:
 
 from __future__ import annotations
 
+from functools import lru_cache
 from pathlib import Path
 
-import holoviews as hv
-import panel as pn
 from fastmcp import FastMCP
 
-hv.extension("bokeh")
-pn.extension(inline=True)
+
+def _init_extensions() -> None:
+    """Initialize HoloViews/Panel extensions once, lazily."""
+    import holoviews as hv
+    import panel as pn
+
+    if not getattr(hv, "_mcp_initialized", False):
+        hv.extension("bokeh")
+        pn.extension(inline=True)
+        hv._mcp_initialized = True
+
 
 mcp = FastMCP(
     "holoviz-viz-mcp",
@@ -38,6 +46,34 @@ mcp = FastMCP(
         "Use create_dashboard with template_style='material' for polished output."
     ),
 )
+
+
+# ── Error-safe tool wrapper ───────────────────────────────────────
+
+import functools
+import logging
+import traceback
+
+_log = logging.getLogger("holoviz-viz-mcp")
+
+
+def _safe_tool(fn):
+    """Wrap a tool function so unhandled exceptions return an error message
+    instead of crashing the MCP server (which forces a restart)."""
+
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        try:
+            _init_extensions()
+            return fn(*args, **kwargs)
+        except KeyError as exc:
+            return f"Error: {exc}"
+        except Exception:
+            tb = traceback.format_exc()
+            _log.error("Tool %s failed:\n%s", fn.__name__, tb)
+            return f"Error in {fn.__name__}: {tb.splitlines()[-1]}"
+
+    return wrapper
 
 
 # ── Register tools ────────────────────────────────────────────────
@@ -67,73 +103,41 @@ from .tools.utils import (  # noqa: E402
     describe_plot, clone_plot, get_data_sample, save_session, load_session,
 )
 
-# Data tools (5)
-mcp.tool()(load_data)
-mcp.tool()(list_datasets)
-mcp.tool()(analyze_data)
-mcp.tool()(suggest_visualizations)
-mcp.tool()(load_sample_data)
+_all_tools = [
+    # Data tools (5)
+    load_data, list_datasets, analyze_data, suggest_visualizations, load_sample_data,
+    # Data transformation tools (2)
+    transform_data, merge_datasets,
+    # Visualization tools (5)
+    create_plot, modify_plot, undo_plot, list_plots, execute_code,
+    # Advanced visualization tools (6)
+    create_crossfilter, create_streaming_plot, annotate_plot, overlay_plots,
+    create_datashader_plot, time_series_analysis,
+    # Interactive tools (4)
+    handle_click, set_theme, launch_panel, stop_panel,
+    # Dashboard & export tools (3)
+    create_dashboard, get_plot_html, export_plot,
+    # Intelligent analysis tools (4)
+    auto_eda, statistical_test, data_quality_report, compare_datasets,
+    # Natural language tools (1)
+    natural_language_query,
+    # Utility tools (6)
+    describe_plot, clone_plot, get_data_sample, save_session, load_session,
+    generate_large_dataset,
+]
 
-# Data transformation tools (2)
-mcp.tool()(transform_data)
-mcp.tool()(merge_datasets)
-
-# Visualization tools (5)
-mcp.tool()(create_plot)
-mcp.tool()(modify_plot)
-mcp.tool()(undo_plot)
-mcp.tool()(list_plots)
-mcp.tool()(execute_code)
-
-# Advanced visualization tools (6)
-mcp.tool()(create_crossfilter)
-mcp.tool()(create_streaming_plot)
-mcp.tool()(annotate_plot)
-mcp.tool()(overlay_plots)
-mcp.tool()(create_datashader_plot)
-mcp.tool()(time_series_analysis)
-
-# Interactive tools (4)
-mcp.tool()(handle_click)
-mcp.tool()(set_theme)
-mcp.tool()(launch_panel)
-mcp.tool()(stop_panel)
-
-# Dashboard & export tools (3)
-mcp.tool()(create_dashboard)
-mcp.tool()(get_plot_html)
-mcp.tool()(export_plot)
-
-# Intelligent analysis tools (4)
-mcp.tool()(auto_eda)
-mcp.tool()(statistical_test)
-mcp.tool()(data_quality_report)
-mcp.tool()(compare_datasets)
-
-# Natural language tools (1)
-mcp.tool()(natural_language_query)
-
-# Utility tools (6)
-mcp.tool()(describe_plot)
-mcp.tool()(clone_plot)
-mcp.tool()(get_data_sample)
-mcp.tool()(save_session)
-mcp.tool()(load_session)
-mcp.tool()(generate_large_dataset)
+for _fn in _all_tools:
+    mcp.tool()(_safe_tool(_fn))
 
 
 # ── MCP Apps: 8 UI resources ─────────────────────────────────────
 
 APPS_DIR = Path(__file__).parent / "apps"
 
-VIZ_HTML = (APPS_DIR / "viz.html").read_text()
-DASHBOARD_HTML = (APPS_DIR / "dashboard.html").read_text()
-STREAM_HTML = (APPS_DIR / "stream.html").read_text()
-CROSSFILTER_HTML = (APPS_DIR / "crossfilter.html").read_text()
-EDA_HTML = (APPS_DIR / "eda.html").read_text()
-STATISTICS_HTML = (APPS_DIR / "statistics.html").read_text()
-TIMESERIES_HTML = (APPS_DIR / "timeseries.html").read_text()
-QUALITY_HTML = (APPS_DIR / "quality.html").read_text()
+
+@lru_cache(maxsize=None)
+def _load_app_html(name: str) -> str:
+    return (APPS_DIR / f"{name}.html").read_text()
 
 
 @mcp.resource(
@@ -144,7 +148,7 @@ QUALITY_HTML = (APPS_DIR / "quality.html").read_text()
     app=True,
 )
 def viz_resource() -> str:
-    return VIZ_HTML
+    return _load_app_html("viz")
 
 
 @mcp.resource(
@@ -155,7 +159,7 @@ def viz_resource() -> str:
     app=True,
 )
 def dashboard_resource() -> str:
-    return DASHBOARD_HTML
+    return _load_app_html("dashboard")
 
 
 @mcp.resource(
@@ -166,7 +170,7 @@ def dashboard_resource() -> str:
     app=True,
 )
 def stream_resource() -> str:
-    return STREAM_HTML
+    return _load_app_html("stream")
 
 
 @mcp.resource(
@@ -177,7 +181,7 @@ def stream_resource() -> str:
     app=True,
 )
 def crossfilter_resource() -> str:
-    return CROSSFILTER_HTML
+    return _load_app_html("crossfilter")
 
 
 @mcp.resource(
@@ -188,7 +192,7 @@ def crossfilter_resource() -> str:
     app=True,
 )
 def eda_resource() -> str:
-    return EDA_HTML
+    return _load_app_html("eda")
 
 
 @mcp.resource(
@@ -199,7 +203,7 @@ def eda_resource() -> str:
     app=True,
 )
 def statistics_resource() -> str:
-    return STATISTICS_HTML
+    return _load_app_html("statistics")
 
 
 @mcp.resource(
@@ -210,7 +214,7 @@ def statistics_resource() -> str:
     app=True,
 )
 def timeseries_resource() -> str:
-    return TIMESERIES_HTML
+    return _load_app_html("timeseries")
 
 
 @mcp.resource(
@@ -221,7 +225,7 @@ def timeseries_resource() -> str:
     app=True,
 )
 def quality_resource() -> str:
-    return QUALITY_HTML
+    return _load_app_html("quality")
 
 
 # ── Prompts ───────────────────────────────────────────────────────
