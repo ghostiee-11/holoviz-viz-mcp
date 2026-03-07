@@ -62,15 +62,29 @@ AI Assistant (Claude / ChatGPT / Copilot)
 git clone https://github.com/ghostiee-11/holoviz-viz-mcp.git
 cd holoviz-viz-mcp
 pip install -e ".[test]"
-
-# Run the demo
-python demos/quick_demo.py
-
-# Run tests
-pytest tests/ -v
 ```
 
-## Use with Claude Desktop
+### One-command setup for any AI client
+
+```bash
+# Pick your client:
+bash setup.sh claude-desktop
+bash setup.sh claude-code
+bash setup.sh cursor
+bash setup.sh vscode
+bash setup.sh all              # configure all at once
+```
+
+Then restart your AI client and try:
+
+> *"Load the iris dataset and create a scatter plot of sepal_length vs sepal_width, colored by species"*
+
+See [DEMO_PROMPTS.md](DEMO_PROMPTS.md) for 12 ready-to-use demo prompts.
+
+### Manual setup
+
+<details>
+<summary>Claude Desktop</summary>
 
 Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
@@ -83,8 +97,62 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
   }
 }
 ```
+Restart Claude Desktop. The hammer icon appears in the chat input.
+</details>
 
-Then ask Claude: *"Load the iris dataset and create a scatter plot of sepal length vs width, colored by species"*
+<details>
+<summary>Claude Code (CLI)</summary>
+
+```bash
+claude mcp add holoviz-viz -- holoviz-viz-mcp
+```
+</details>
+
+<details>
+<summary>Cursor</summary>
+
+Add to `~/.cursor/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "holoviz-viz": {
+      "command": "holoviz-viz-mcp"
+    }
+  }
+}
+```
+</details>
+
+<details>
+<summary>VS Code Copilot Chat</summary>
+
+Add to `.vscode/settings.json`:
+
+```json
+{
+  "github.copilot.chat.mcpServers": {
+    "holoviz-viz": {
+      "command": "holoviz-viz-mcp"
+    }
+  }
+}
+```
+</details>
+
+### Run the local demo (no AI client needed)
+
+```bash
+python demos/quick_demo.py
+# Opens demo_scatter.html, demo_crossfilter.html, demo_streaming.html
+```
+
+### Run tests
+
+```bash
+pytest tests/ -v
+# 76 tests across 8 test files
+```
 
 ## Tools (19)
 
