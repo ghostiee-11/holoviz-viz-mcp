@@ -5,7 +5,8 @@
       "command": "python3",
       "args": ["-m", "holoviz_viz_mcp.server"],
       "env": {
-        "PYTHONPATH": "src"
+        "PYTHONPATH": "src",
+        "PATH": "/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin"
       }
     }
   }
