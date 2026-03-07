@@ -35,9 +35,34 @@ def render_layout_to_html(
     layout: str = "column",
     title: str = "Dashboard",
     width: int = 800,
+    template_style: str | None = None,
 ) -> str:
-    """Render multiple HoloViews objects as a Panel layout to HTML."""
+    """Render multiple HoloViews objects as a Panel layout to HTML.
+
+    Args:
+        panels: List of HoloViews objects to render
+        layout: Layout type — 'column', 'row', 'tabs', 'grid'
+        title: Dashboard title
+        width: Width in pixels
+        template_style: Dashboard template — None (simple), 'material', 'bootstrap', 'fast'
+    """
     panes = [pn.pane.HoloViews(obj) for obj in panels]
+
+    if template_style in ("material", "bootstrap", "fast"):
+        try:
+            tmpl_cls = {
+                "material": pn.template.MaterialTemplate,
+                "bootstrap": pn.template.BootstrapTemplate,
+                "fast": pn.template.FastListTemplate,
+            }[template_style]
+            tmpl = tmpl_cls(title=title)
+            for p in panes:
+                tmpl.main.append(p)
+            buf = io.StringIO()
+            tmpl.save(buf, embed=True)
+            return buf.getvalue()
+        except Exception:
+            pass  # Fall through to simple layout
 
     if layout == "row":
         container = pn.Row(*panes)

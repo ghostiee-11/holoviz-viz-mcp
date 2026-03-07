@@ -32,6 +32,10 @@ def test_server_has_all_tools():
         "handle_click", "set_theme", "launch_panel", "stop_panel",
         # Dashboard & export
         "create_dashboard", "get_plot_html", "export_plot",
+        # Intelligent analysis tools
+        "auto_eda", "statistical_test", "data_quality_report", "compare_datasets",
+        # Natural language
+        "natural_language_query",
     }
     tools = asyncio.run(mcp.list_tools())
     registered = {t.name for t in tools}
@@ -50,14 +54,17 @@ def test_server_has_4_resources():
 
 
 def test_server_has_prompts():
-    """Server should register both workflow prompts."""
+    """Server should register all workflow prompts."""
     prompts = asyncio.run(mcp.list_prompts())
     names = [p.name for p in prompts]
     assert "eda_workflow" in names
     assert "crossfilter_workflow" in names
+    assert "data_quality_workflow" in names
+    assert "statistical_analysis_workflow" in names
+    assert "storytelling_workflow" in names
 
 
 def test_tool_count():
-    """Server should have exactly 23 tools."""
+    """Server should have exactly 28 tools."""
     tools = asyncio.run(mcp.list_tools())
-    assert len(tools) == 23
+    assert len(tools) == 28

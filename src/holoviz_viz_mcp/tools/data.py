@@ -164,7 +164,7 @@ def load_sample_data(dataset: str = "iris") -> str:
     """Load a built-in sample dataset for quick demos.
 
     Args:
-        dataset: Name of sample dataset — 'iris', 'penguins', 'tips', 'stocks'
+        dataset: Name of sample dataset — 'iris', 'penguins', 'tips', 'stocks', 'diamonds', 'gapminder', 'weather', 'earthquakes'
     """
     if dataset == "iris":
         from sklearn.datasets import load_iris
@@ -215,8 +215,76 @@ def load_sample_data(dataset: str = "iris") -> str:
             ]).round(2),
             "company": np.repeat(["AAPL", "GOOG", "MSFT"], 252),
         })
+    elif dataset == "diamonds":
+        np.random.seed(42)
+        n = 500
+        cuts = np.random.choice(["Fair", "Good", "Very Good", "Premium", "Ideal"], n, p=[0.03, 0.09, 0.22, 0.26, 0.40])
+        colors = np.random.choice(["D", "E", "F", "G", "H", "I", "J"], n)
+        clarity = np.random.choice(["IF", "VVS1", "VVS2", "VS1", "VS2", "SI1", "SI2", "I1"], n)
+        carat = np.random.lognormal(-0.3, 0.5, n).round(2).clip(0.2, 5.0)
+        price = (carat * 3500 + np.random.normal(0, 800, n)).round(0).clip(326, 18823)
+        df = pd.DataFrame({
+            "carat": carat, "cut": cuts, "color": colors, "clarity": clarity,
+            "depth": np.random.normal(61.7, 1.4, n).round(1),
+            "table": np.random.normal(57.5, 2.2, n).round(1),
+            "price": price.astype(int),
+            "x": (carat * 5.5 + np.random.normal(0, 0.2, n)).round(2),
+            "y": (carat * 5.5 + np.random.normal(0, 0.2, n)).round(2),
+            "z": (carat * 3.4 + np.random.normal(0, 0.1, n)).round(2),
+        })
+    elif dataset == "gapminder":
+        np.random.seed(42)
+        countries = ["China", "India", "United States", "Indonesia", "Brazil",
+                     "Nigeria", "Japan", "Germany", "United Kingdom", "France"]
+        continents = ["Asia", "Asia", "Americas", "Asia", "Americas",
+                      "Africa", "Asia", "Europe", "Europe", "Europe"]
+        years = [1952, 1962, 1972, 1982, 1992, 2002, 2007]
+        records = []
+        for i, (country, continent) in enumerate(zip(countries, continents)):
+            base_pop = [500, 400, 150, 80, 60, 40, 85, 70, 50, 42][i] * 1e6
+            base_gdp = [400, 550, 13990, 750, 2100, 1100, 3200, 7100, 9980, 7000][i]
+            base_life = [44, 37, 68, 37, 50, 36, 63, 67, 69, 67][i]
+            for j, year in enumerate(years):
+                pop = int(base_pop * (1.02 ** (j * 10)))
+                gdp = round(base_gdp * (1.03 ** (j * 10)), 0)
+                life = round(min(85, base_life + j * 3.5 + np.random.normal(0, 1)), 1)
+                records.append({
+                    "country": country, "continent": continent, "year": year,
+                    "life_expectancy": life, "population": pop,
+                    "gdp_per_capita": gdp,
+                })
+        df = pd.DataFrame(records)
+    elif dataset == "weather":
+        np.random.seed(42)
+        dates = pd.date_range("2024-01-01", periods=365, freq="D")
+        day_of_year = np.arange(365)
+        temp_base = 15 + 12 * np.sin(2 * np.pi * (day_of_year - 80) / 365)
+        df = pd.DataFrame({
+            "date": dates,
+            "temperature": (temp_base + np.random.normal(0, 3, 365)).round(1),
+            "humidity": (60 + 15 * np.sin(2 * np.pi * day_of_year / 365) + np.random.normal(0, 8, 365)).clip(20, 100).round(1),
+            "wind_speed": np.random.exponential(10, 365).round(1),
+            "precipitation": np.maximum(0, np.random.normal(2, 5, 365)).round(1),
+            "condition": np.random.choice(["Sunny", "Cloudy", "Rainy", "Stormy", "Snowy"], 365, p=[0.35, 0.30, 0.20, 0.10, 0.05]),
+            "month": dates.strftime("%B"),
+        })
+    elif dataset == "earthquakes":
+        np.random.seed(42)
+        n = 300
+        df = pd.DataFrame({
+            "date": pd.date_range("2020-01-01", periods=n, freq="29h"),
+            "latitude": np.random.uniform(-60, 60, n).round(4),
+            "longitude": np.random.uniform(-180, 180, n).round(4),
+            "depth_km": np.random.exponential(30, n).round(1),
+            "magnitude": (np.random.exponential(1.2, n) + 2).round(1).clip(2.0, 9.5),
+            "region": np.random.choice([
+                "Pacific Ring", "Mid-Atlantic Ridge", "Alpine-Himalayan",
+                "East African Rift", "Caribbean", "Other"
+            ], n, p=[0.40, 0.15, 0.20, 0.10, 0.08, 0.07]),
+        })
     else:
-        return f"Unknown dataset '{dataset}'. Available: iris, penguins, tips, stocks"
+        available = "iris, penguins, tips, stocks, diamonds, gapminder, weather, earthquakes"
+        return f"Unknown dataset '{dataset}'. Available: {available}"
 
     state.store_dataset(df, dataset)
     return (

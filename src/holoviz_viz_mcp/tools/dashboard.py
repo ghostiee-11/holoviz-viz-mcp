@@ -16,15 +16,18 @@ def create_dashboard(
     plot_ids: str,
     title: str = "Dashboard",
     layout: str = "column",
+    template_style: str | None = None,
 ) -> list:
     """Create a dashboard combining multiple plots.
 
     Returns PNG preview + interactive HTML with full Panel layout.
+    Supports professional dashboard templates for polished output.
 
     Args:
         plot_ids: Comma-separated list of plot IDs to include
         title: Dashboard title
         layout: Layout type — 'column' (vertical), 'row' (horizontal), 'tabs', 'grid'
+        template_style: Professional template — None (simple), 'material', 'bootstrap', 'fast'
     """
     ids = [pid.strip() for pid in plot_ids.split(",")]
     plots = []
@@ -41,13 +44,16 @@ def create_dashboard(
     combined = combined.opts(title=title)
     png_bytes = render_to_png(combined, width=800, height=400 * len(plots))
 
-    # Interactive HTML via Panel layout
-    html = render_layout_to_html(plots, layout=layout, title=title)
+    # Interactive HTML via Panel layout (with optional template)
+    html = render_layout_to_html(
+        plots, layout=layout, title=title, template_style=template_style
+    )
 
+    style_note = f" [{template_style} template]" if template_style else ""
     return [
         TextContent(
             type="text",
-            text=f"Created dashboard '{title}' with {len(ids)} plots ({layout} layout)",
+            text=f"Created dashboard '{title}' with {len(ids)} plots ({layout} layout{style_note})",
         ),
         ImageContent(
             type="image",
