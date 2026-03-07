@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HoloViz Live Stream</title>
+<style>
+  :root { --bg: #fff; --fg: #1a1a1a; --border: #e0e0e0; --card: #f8f9fa; --accent: #4a90d9; --green: #28a745; --red: #dc3545; }
+  [data-theme="dark"] { --bg: #1a1a2e; --fg: #e0e0e0; --border: #333; --card: #16213e; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--fg); }
+  .controls {
+    display: flex; align-items: center; gap: 8px; padding: 8px 16px;
+    background: var(--card); border-bottom: 1px solid var(--border);
+  }
+  .controls h3 { font-size: 14px; }
+  .controls .spacer { flex: 1; }
+  .controls button {
+    padding: 4px 12px; border: 1px solid var(--border); border-radius: 4px;
+    background: var(--bg); color: var(--fg); cursor: pointer; font-size: 12px;
+  }
+  .controls button.play { background: var(--green); color: #fff; border-color: var(--green); }
+  .controls button.pause { background: var(--red); color: #fff; border-color: var(--red); }
+  .controls .indicator { width: 8px; height: 8px; border-radius: 50%; background: var(--green); animation: pulse 1s infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+  .controls .indicator.paused { background: #888; animation: none; }
+  .status-bar { padding: 4px 16px; font-size: 11px; color: #888; border-bottom: 1px solid var(--border); }
+  #stream-container { width: 100%; height: calc(100vh - 75px); }
+  #stream-container iframe { width: 100%; height: 100%; border: none; }
+  #loading { display: flex; align-items: center; justify-content: center; height: calc(100vh - 75px); color: #888; }
+</style>
+</head>
+<body>
+  <div class="controls">
+    <div class="indicator" id="indicator"></div>
+    <h3>Live Stream</h3>
+    <div class="spacer"></div>
+    <button onclick="toggleTheme()">Theme</button>
+  </div>
+  <div class="status-bar" id="status">Waiting for stream...</div>
+  <div id="loading">Waiting for streaming visualization...</div>
+  <div id="stream-container" style="display: none;"></div>
+
+  <script>
+    const pendingRequests = new Map();
+    let requestId = 0;
+
+    function sendToHost(method, params = {}) {
+      const id = ++requestId;
+      return new Promise((resolve, reject) => {
+        pendingRequests.set(id, { resolve, reject });
+        window.parent.postMessage({ jsonrpc: '2.0', id, method, params }, '*');
+      });
+    }
+
+    window.addEventListener('message', (event) => {
+      const msg = event.data;
+      if (!msg || msg.jsonrpc !== '2.0') return;
+      if (msg.id && pendingRequests.has(msg.id)) {
+        const { resolve, reject } = pendingRequests.get(msg.id);
+        pendingRequests.delete(msg.id);
+        msg.error ? reject(msg.error) : resolve(msg.result);
+        return;
+      }
+      if (msg.method === 'ui/notifications/tool-input') {
+        const html = msg.params?.input?.html;
+        if (html) renderStream(html);
+      }
+    });
+
+    function renderStream(html) {
+      const container = document.getElementById('stream-container');
+      document.getElementById('loading').style.display = 'none';
+      container.style.display = 'block';
+      const iframe = document.createElement('iframe');
+      iframe.sandbox = 'allow-scripts allow-same-origin';
+      iframe.srcdoc = html;
+      container.innerHTML = '';
+      container.appendChild(iframe);
+      document.getElementById('status').textContent = 'Streaming active';
+    }
+
+    function toggleTheme() {
+      const isDark = document.body.getAttribute('data-theme') === 'dark';
+      document.body.setAttribute('data-theme', isDark ? '' : 'dark');
+    }
+
+    async function init() {
+      try { await sendToHost('ui/initialize', { capabilities: { acceptsNotifications: true } }); } catch (e) {}
+    }
+    init();
+  </script>
+</body>
+</html>

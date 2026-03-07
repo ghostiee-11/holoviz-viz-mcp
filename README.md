@@ -5,8 +5,9 @@ An MCP server that gives AI assistants the ability to create **real, interactive
 Built as a prototype, bringing HoloViz's visualization stack to any MCP-compatible AI assistant.
 
 ![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)
-![Tests](https://img.shields.io/badge/tests-76%20passed-green.svg)
-![Tools](https://img.shields.io/badge/MCP%20tools-19-purple.svg)
+![Tests](https://img.shields.io/badge/tests-89%20passed-green.svg)
+![Tools](https://img.shields.io/badge/MCP%20tools-23-purple.svg)
+![MCP Apps](https://img.shields.io/badge/MCP%20Apps-4%20resources-orange.svg)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey.svg)
 
 ---
@@ -19,14 +20,17 @@ The key technical decision: `pn.pane.HoloViews(plot).save(buf, embed=True)` prod
 
 ## What it can do
 
-- **19 tools** covering data loading, transformation, visualization, annotation, crossfiltering, streaming, dashboards, and export
+- **23 tools** covering data loading, transformation, visualization, annotation, crossfiltering, streaming, dashboards, interaction, and export
+- **4 MCP Apps resources**: specialized viewers for charts, dashboards, streaming, and crossfilter — each with theme toggle and toolbar
 - **Dual output**: every viz returns both a PNG preview (renders inline in chat) and interactive HTML (full Bokeh interactivity)
+- **Bidirectional click handling**: click a data point, get statistical insights and context back from the AI
 - **Linked selections / crossfiltering**: brush points in one plot, all other views filter in real time — a HoloViews feature that only works with proper Panel rendering
 - **Streaming visualizations**: live-updating charts with play/pause controls
 - **Data transformations**: filter, groupby, pivot, derive, merge — so the AI can wrangle data before plotting
-- **Annotations**: add threshold lines, highlight bands, text labels, markers to any plot
+- **Annotations**: threshold lines, highlight bands, text labels, markers, arrows on any plot
 - **Multi-format loading**: CSV, JSON, Parquet, Excel, or URL
-- **MCP Apps support**: `ui://holoviz/viewer` resource for in-chat interactive rendering
+- **Theme switching**: default, dark, midnight themes
+- **Launch in browser**: open any chart as a full Panel app with `launch_panel`
 
 ## Architecture
 
@@ -154,7 +158,7 @@ pytest tests/ -v
 # 76 tests across 8 test files
 ```
 
-## Tools (19)
+## Tools (23)
 
 ### Data Management (5 tools)
 
@@ -189,8 +193,17 @@ pytest tests/ -v
 |------|-------------|--------|
 | `create_crossfilter` | Linked brushing across multiple views — select in one, all update | PNG + HTML |
 | `create_streaming_plot` | Live-updating chart with play/pause/reset controls | PNG + HTML |
-| `annotate_plot` | Add hline/vline/hspan/vspan/text/point annotations | PNG + HTML |
+| `annotate_plot` | Add hline/vline/hspan/vspan/text/point/arrow annotations | PNG + HTML |
 | `overlay_plots` | Composite multiple plots onto shared axes | PNG + HTML |
+
+### Interactive (4 tools)
+
+| Tool | What it does | Output |
+|------|-------------|--------|
+| `handle_click` | Process chart click events — returns statistical insights and data context | Text |
+| `set_theme` | Set global theme (default/dark/midnight) for new plots | Text |
+| `launch_panel` | Open any chart as a full interactive Panel app in the browser | Text |
+| `stop_panel` | Stop a running Panel server | Text |
 
 ### Dashboard & Export (3 tools)
 
@@ -199,6 +212,15 @@ pytest tests/ -v
 | `create_dashboard` | Combine plots in column/row/tabs/grid layout | PNG + HTML |
 | `get_plot_html` | Get raw interactive HTML for any plot | HTML |
 | `export_plot` | Export to HTML, PNG, or SVG | Encoded content |
+
+## MCP Apps Resources (4)
+
+| Resource URI | Viewer | Features |
+|-------------|--------|----------|
+| `ui://holoviz/viz` | Chart Viewer | Theme toggle, save PNG, open in browser |
+| `ui://holoviz/dashboard` | Dashboard Viewer | Multi-panel layout with stats sidebar |
+| `ui://holoviz/stream` | Stream Viewer | Live indicator, status bar |
+| `ui://holoviz/crossfilter` | Crossfilter Viewer | Linked brush hint, open full size |
 
 ## Supported chart types
 
@@ -244,19 +266,27 @@ The streaming tool creates live-updating charts:
 # -> Returns HTML with play/pause controls and a random walk that updates every 500ms
 ```
 
+## Showcase demos
+
+```bash
+python demos/showcase_stock_analysis.py   # Stock prices, transforms, annotations, dashboard
+python demos/showcase_ml_evaluator.py     # Feature importance, confusion matrix, crossfilter
+python demos/quick_demo.py                # Full tour of all features
+```
+
 ## Testing
 
 ```bash
 pytest tests/ -v
-# 76 tests covering: state management, data tools, viz tools, transforms,
-# crossfilter, streaming, annotations, export, server integration
+# 89 tests covering: state management, data tools, viz tools, transforms,
+# crossfilter, streaming, annotations, export, interaction, server integration
 ```
 
 ## Project structure
 
 ```
 src/holoviz_viz_mcp/
-  server.py          # FastMCP entry point, tool registration
+  server.py          # FastMCP entry point, 23 tools, 4 resources, 2 prompts
   state.py           # Dataset + plot state with versioning/undo
   rendering.py       # HoloViews -> PNG/HTML via Panel embed
   tools/
@@ -265,20 +295,20 @@ src/holoviz_viz_mcp/
     viz.py           # create, modify, undo, list, execute_code
     crossfilter.py   # linked selections across views
     streaming.py     # live-updating charts
-    annotations.py   # hline, vline, spans, text, points, overlays
+    annotations.py   # hline, vline, spans, text, points, arrows, overlays
     dashboard.py     # layout composition
     export.py        # HTML/PNG/SVG export
+    interact.py      # handle_click, set_theme, launch_panel, stop_panel
   apps/
-    viewer.html      # MCP Apps interactive viewer
-tests/
-  test_state.py      # 10 tests
-  test_tools.py      # 14 tests
-  test_transform.py  # 17 tests
-  test_annotations.py # 15 tests
-  test_crossfilter.py # 5 tests
-  test_streaming.py  # 7 tests
-  test_export.py     # 4 tests
-  test_server.py     # 4 tests
+    viz.html         # Chart viewer with toolbar
+    dashboard.html   # Dashboard viewer with stats
+    stream.html      # Streaming viewer with indicators
+    crossfilter.html # Crossfilter viewer with hints
+tests/               # 89 tests across 9 files
+demos/
+  quick_demo.py
+  showcase_stock_analysis.py
+  showcase_ml_evaluator.py
 ```
 
 ## Technical notes

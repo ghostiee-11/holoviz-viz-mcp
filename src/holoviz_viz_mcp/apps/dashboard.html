@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HoloViz Dashboard</title>
+<style>
+  :root { --bg: #fff; --fg: #1a1a1a; --border: #e0e0e0; --card: #f8f9fa; --accent: #4a90d9; }
+  [data-theme="dark"] { --bg: #1a1a2e; --fg: #e0e0e0; --border: #333; --card: #16213e; --accent: #64b5f6; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--fg); overflow: auto; }
+  .header {
+    display: flex; align-items: center; gap: 8px; padding: 8px 16px;
+    background: var(--card); border-bottom: 1px solid var(--border);
+  }
+  .header h3 { font-size: 14px; flex: 1; }
+  .header button {
+    padding: 3px 8px; border: 1px solid var(--border); border-radius: 3px;
+    background: var(--bg); color: var(--fg); cursor: pointer; font-size: 11px;
+  }
+  .header button:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .dashboard { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px; }
+  .panel { flex: 1; min-width: 300px; border: 1px solid var(--border); border-radius: 6px; background: var(--card); overflow: hidden; }
+  .panel iframe { width: 100%; height: 400px; border: none; }
+  .panel-title { padding: 6px 10px; font-size: 12px; font-weight: 600; border-bottom: 1px solid var(--border); }
+  .stats { padding: 12px; font-size: 12px; }
+  .stat-row { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid var(--border); }
+  #loading { display: flex; align-items: center; justify-content: center; height: 80vh; color: #888; }
+</style>
+</head>
+<body>
+  <div class="header">
+    <h3 id="title">Dashboard</h3>
+    <button onclick="toggleTheme()">Theme</button>
+  </div>
+  <div id="loading">Waiting for dashboard data...</div>
+  <div class="dashboard" id="dashboard" style="display: none;"></div>
+
+  <script>
+    const pendingRequests = new Map();
+    let requestId = 0;
+    let panels = [];
+
+    function sendToHost(method, params = {}) {
+      const id = ++requestId;
+      return new Promise((resolve, reject) => {
+        pendingRequests.set(id, { resolve, reject });
+        window.parent.postMessage({ jsonrpc: '2.0', id, method, params }, '*');
+      });
+    }
+
+    window.addEventListener('message', (event) => {
+      const msg = event.data;
+      if (!msg || msg.jsonrpc !== '2.0') return;
+      if (msg.id && pendingRequests.has(msg.id)) {
+        const { resolve, reject } = pendingRequests.get(msg.id);
+        pendingRequests.delete(msg.id);
+        msg.error ? reject(msg.error) : resolve(msg.result);
+        return;
+      }
+      if (msg.method === 'ui/notifications/tool-input') {
+        handleInput(msg.params);
+      }
+    });
+
+    function handleInput(params) {
+      const input = params?.input;
+      if (input?.html) {
+        addPanel(input.title || `View ${panels.length + 1}`, input.html);
+      }
+      if (input?.stats) {
+        addStatsPanel(input.stats);
+      }
+    }
+
+    function addPanel(title, html) {
+      const dashboard = document.getElementById('dashboard');
+      document.getElementById('loading').style.display = 'none';
+      dashboard.style.display = 'flex';
+
+      const panel = document.createElement('div');
+      panel.className = 'panel';
+      panel.innerHTML = `<div class="panel-title">${title}</div>`;
+      const iframe = document.createElement('iframe');
+      iframe.sandbox = 'allow-scripts allow-same-origin';
+      iframe.srcdoc = html;
+      panel.appendChild(iframe);
+      dashboard.appendChild(panel);
+      panels.push({ title, html });
+    }
+
+    function addStatsPanel(stats) {
+      const dashboard = document.getElementById('dashboard');
+      const panel = document.createElement('div');
+      panel.className = 'panel';
+      panel.style.maxWidth = '280px';
+      let html = '<div class="panel-title">Summary Statistics</div><div class="stats">';
+      for (const [key, val] of Object.entries(stats)) {
+        html += `<div class="stat-row"><span>${key}</span><span style="font-weight:600">${val}</span></div>`;
+      }
+      html += '</div>';
+      panel.innerHTML = html;
+      dashboard.appendChild(panel);
+    }
+
+    function toggleTheme() {
+      const isDark = document.body.getAttribute('data-theme') === 'dark';
+      document.body.setAttribute('data-theme', isDark ? '' : 'dark');
+    }
+
+    async function init() {
+      try { await sendToHost('ui/initialize', { capabilities: { acceptsNotifications: true } }); } catch (e) {}
+    }
+    init();
+  </script>
+</body>
+</html>

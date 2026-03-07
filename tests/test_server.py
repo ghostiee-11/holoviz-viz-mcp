@@ -14,10 +14,6 @@ def event_loop():
     loop.close()
 
 
-def _run(coro):
-    return asyncio.get_event_loop().run_until_complete(coro)
-
-
 def test_server_has_all_tools():
     """Server should register all expected tools."""
     expected = {
@@ -32,6 +28,8 @@ def test_server_has_all_tools():
         # Advanced viz tools
         "create_crossfilter", "create_streaming_plot",
         "annotate_plot", "overlay_plots",
+        # Interactive tools
+        "handle_click", "set_theme", "launch_panel", "stop_panel",
         # Dashboard & export
         "create_dashboard", "get_plot_html", "export_plot",
     }
@@ -40,21 +38,26 @@ def test_server_has_all_tools():
     assert expected.issubset(registered), f"Missing: {expected - registered}"
 
 
-def test_server_has_viewer_resource():
-    """Server should register the MCP Apps viewer resource."""
+def test_server_has_4_resources():
+    """Server should register 4 MCP Apps resources (viz, dashboard, stream, crossfilter)."""
     resources = asyncio.run(mcp.list_resources())
     uris = [str(r.uri) for r in resources]
-    assert any("viewer" in u for u in uris), f"No viewer resource in {uris}"
+    assert any("viz" in u for u in uris), f"No viz resource in {uris}"
+    assert any("dashboard" in u for u in uris), f"No dashboard resource in {uris}"
+    assert any("stream" in u for u in uris), f"No stream resource in {uris}"
+    assert any("crossfilter" in u for u in uris), f"No crossfilter resource in {uris}"
+    assert len(resources) == 4
 
 
-def test_server_has_eda_prompt():
-    """Server should register the EDA workflow prompt."""
+def test_server_has_prompts():
+    """Server should register both workflow prompts."""
     prompts = asyncio.run(mcp.list_prompts())
     names = [p.name for p in prompts]
     assert "eda_workflow" in names
+    assert "crossfilter_workflow" in names
 
 
 def test_tool_count():
-    """Server should have exactly 19 tools."""
+    """Server should have exactly 23 tools."""
     tools = asyncio.run(mcp.list_tools())
-    assert len(tools) == 19
+    assert len(tools) == 23

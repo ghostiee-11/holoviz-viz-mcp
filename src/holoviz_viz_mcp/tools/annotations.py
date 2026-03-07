@@ -79,8 +79,18 @@ def annotate_plot(
             return [TextContent(type="text", text="Error: 'point' requires 'x' and 'y'.")]
         overlay = hv.Points([(x, y)]).opts(color=color, size=12, marker="circle")
 
+    elif annotation_type == "arrow":
+        if x is None or y is None:
+            return [TextContent(type="text", text="Error: 'arrow' requires 'x', 'y' (target point). Use x_start/y_start for arrow origin.")]
+        direction = "^"
+        if x_start is not None and x_start > x:
+            direction = ">"
+        elif x_start is not None and x_start < x:
+            direction = "<"
+        overlay = hv.Arrow(x, y, label or "", direction=direction).opts(arrow_size=12)
+
     else:
-        return [TextContent(type="text", text=f"Unknown annotation type '{annotation_type}'. Use: hline, vline, hspan, vspan, text, point.")]
+        return [TextContent(type="text", text=f"Unknown annotation type '{annotation_type}'. Use: hline, vline, hspan, vspan, text, point, arrow.")]
 
     annotated = base_obj * overlay
     state.save_plot(annotated, {**version["spec"], "annotation": annotation_type}, version["data_ref"], plot_id=plot_id)

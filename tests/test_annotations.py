@@ -64,8 +64,13 @@ class TestAnnotatePlot:
         assert "Error" in result[0].text
 
     def test_unknown_type(self, scatter_plot):
-        result = annotate_plot(scatter_plot, "arrow")
+        result = annotate_plot(scatter_plot, "zigzag")
         assert "Unknown" in result[0].text
+
+    def test_arrow(self, scatter_plot):
+        result = annotate_plot(scatter_plot, "arrow", x=5.0, y=3.0, label="Look here")
+        assert len(result) == 3
+        assert "arrow" in result[0].text
 
     def test_hspan(self, scatter_plot):
         result = annotate_plot(scatter_plot, "hspan", y_start=2.5, y_end=3.5)

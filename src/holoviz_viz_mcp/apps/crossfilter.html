@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HoloViz Crossfilter</title>
+<style>
+  :root { --bg: #fff; --fg: #1a1a1a; --border: #e0e0e0; --card: #f8f9fa; --accent: #4a90d9; }
+  [data-theme="dark"] { --bg: #1a1a2e; --fg: #e0e0e0; --border: #333; --card: #16213e; --accent: #64b5f6; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--fg); }
+  .header {
+    display: flex; align-items: center; gap: 8px; padding: 8px 16px;
+    background: var(--card); border-bottom: 1px solid var(--border);
+  }
+  .header h3 { font-size: 14px; flex: 1; }
+  .header .hint { font-size: 11px; color: #888; }
+  .header button {
+    padding: 3px 8px; border: 1px solid var(--border); border-radius: 3px;
+    background: var(--bg); color: var(--fg); cursor: pointer; font-size: 11px;
+  }
+  .header button:hover { background: var(--accent); color: #fff; }
+  #cf-container { width: 100%; height: calc(100vh - 38px); }
+  #cf-container iframe { width: 100%; height: 100%; border: none; }
+  #loading { display: flex; flex-direction: column; align-items: center; justify-content: center; height: calc(100vh - 38px); color: #888; gap: 8px; }
+  #loading .subtitle { font-size: 12px; }
+</style>
+</head>
+<body>
+  <div class="header">
+    <h3>Crossfilter</h3>
+    <span class="hint">Select/brush in any plot to filter all others</span>
+    <div style="flex:1"></div>
+    <button onclick="toggleTheme()">Theme</button>
+    <button onclick="openFull()">Open Full</button>
+  </div>
+  <div id="loading">
+    <div>Waiting for crossfilter visualization...</div>
+    <div class="subtitle">Use create_crossfilter to generate linked views</div>
+  </div>
+  <div id="cf-container" style="display: none;"></div>
+
+  <script>
+    const pendingRequests = new Map();
+    let requestId = 0;
+    let currentHTML = null;
+
+    function sendToHost(method, params = {}) {
+      const id = ++requestId;
+      return new Promise((resolve, reject) => {
+        pendingRequests.set(id, { resolve, reject });
+        window.parent.postMessage({ jsonrpc: '2.0', id, method, params }, '*');
+      });
+    }
+
+    window.addEventListener('message', (event) => {
+      const msg = event.data;
+      if (!msg || msg.jsonrpc !== '2.0') return;
+      if (msg.id && pendingRequests.has(msg.id)) {
+        const { resolve, reject } = pendingRequests.get(msg.id);
+        pendingRequests.delete(msg.id);
+        msg.error ? reject(msg.error) : resolve(msg.result);
+        return;
+      }
+      if (msg.method === 'ui/notifications/tool-input') {
+        const html = msg.params?.input?.html;
+        if (html) renderCrossfilter(html);
+      }
+    });
+
+    function renderCrossfilter(html) {
+      currentHTML = html;
+      const container = document.getElementById('cf-container');
+      document.getElementById('loading').style.display = 'none';
+      container.style.display = 'block';
+      const iframe = document.createElement('iframe');
+      iframe.sandbox = 'allow-scripts allow-same-origin';
+      iframe.srcdoc = html;
+      container.innerHTML = '';
+      container.appendChild(iframe);
+    }
+
+    function toggleTheme() {
+      const isDark = document.body.getAttribute('data-theme') === 'dark';
+      document.body.setAttribute('data-theme', isDark ? '' : 'dark');
+    }
+
+    function openFull() {
+      if (!currentHTML) return;
+      const blob = new Blob([currentHTML], { type: 'text/html' });
+      window.open(URL.createObjectURL(blob), '_blank');
+    }
+
+    async function init() {
+      try { await sendToHost('ui/initialize', { capabilities: { acceptsNotifications: true } }); } catch (e) {}
+    }
+    init();
+  </script>
+</body>
+</html>
