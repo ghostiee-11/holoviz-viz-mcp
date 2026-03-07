@@ -2,7 +2,7 @@
 
 An MCP server that gives AI assistants the ability to create **real, interactive** data visualizations using the HoloViz ecosystem (hvPlot, HoloViews, Panel).
 
-Built as a prototype for [Panel #8396](https://github.com/holoviz/panel/issues/8396) — bringing HoloViz's visualization stack to any MCP-compatible AI assistant.
+Built as a prototype, bringing HoloViz's visualization stack to any MCP-compatible AI assistant.
 
 ![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)
 ![Tests](https://img.shields.io/badge/tests-76%20passed-green.svg)
@@ -42,7 +42,7 @@ AI Assistant (Claude / ChatGPT / Copilot)
 |      parquet/excel/url)     chart types)       |
 |    load_sample_data       modify_plot          |
 |    analyze_data           undo_plot            |
-|    suggest_visualizations execute_code          |
+|    suggest_visualizations execute_code         |
 |    transform_data                              |
 |    merge_datasets         Advanced:            |
 |                           create_crossfilter   |
