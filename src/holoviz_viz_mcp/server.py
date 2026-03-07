@@ -61,6 +61,11 @@ from .tools.auto_eda import auto_eda  # noqa: E402
 from .tools.statistics import statistical_test  # noqa: E402
 from .tools.data_quality import data_quality_report, compare_datasets  # noqa: E402
 from .tools.nlq import natural_language_query  # noqa: E402
+from .tools.bigdata import create_datashader_plot, generate_large_dataset  # noqa: E402
+from .tools.timeseries import time_series_analysis  # noqa: E402
+from .tools.utils import (  # noqa: E402
+    describe_plot, clone_plot, get_data_sample, save_session, load_session,
+)
 
 # Data tools (5)
 mcp.tool()(load_data)
@@ -80,11 +85,13 @@ mcp.tool()(undo_plot)
 mcp.tool()(list_plots)
 mcp.tool()(execute_code)
 
-# Advanced visualization tools (4)
+# Advanced visualization tools (6)
 mcp.tool()(create_crossfilter)
 mcp.tool()(create_streaming_plot)
 mcp.tool()(annotate_plot)
 mcp.tool()(overlay_plots)
+mcp.tool()(create_datashader_plot)
+mcp.tool()(time_series_analysis)
 
 # Interactive tools (4)
 mcp.tool()(handle_click)
@@ -105,6 +112,14 @@ mcp.tool()(compare_datasets)
 
 # Natural language tools (1)
 mcp.tool()(natural_language_query)
+
+# Utility tools (6)
+mcp.tool()(describe_plot)
+mcp.tool()(clone_plot)
+mcp.tool()(get_data_sample)
+mcp.tool()(save_session)
+mcp.tool()(load_session)
+mcp.tool()(generate_large_dataset)
 
 
 # ── MCP Apps: 4 UI resources ─────────────────────────────────────

@@ -28,6 +28,7 @@ def test_server_has_all_tools():
         # Advanced viz tools
         "create_crossfilter", "create_streaming_plot",
         "annotate_plot", "overlay_plots",
+        "create_datashader_plot", "time_series_analysis",
         # Interactive tools
         "handle_click", "set_theme", "launch_panel", "stop_panel",
         # Dashboard & export
@@ -36,6 +37,9 @@ def test_server_has_all_tools():
         "auto_eda", "statistical_test", "data_quality_report", "compare_datasets",
         # Natural language
         "natural_language_query",
+        # Utility tools
+        "describe_plot", "clone_plot", "get_data_sample",
+        "save_session", "load_session", "generate_large_dataset",
     }
     tools = asyncio.run(mcp.list_tools())
     registered = {t.name for t in tools}
@@ -65,6 +69,6 @@ def test_server_has_prompts():
 
 
 def test_tool_count():
-    """Server should have exactly 28 tools."""
+    """Server should have exactly 36 tools."""
     tools = asyncio.run(mcp.list_tools())
-    assert len(tools) == 28
+    assert len(tools) == 36
