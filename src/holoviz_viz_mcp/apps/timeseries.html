@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HoloViz Time Series</title>
+<style>
+  :root { --bg: #fff; --fg: #1a1a1a; --border: #e0e0e0; --card: #f8f9fa; --accent: #4a90d9; --green: #28a745; --amber: #ff9800; }
+  [data-theme="dark"] { --bg: #1a1a2e; --fg: #e0e0e0; --border: #333; --card: #16213e; --accent: #64b5f6; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--fg); overflow: auto; }
+  .header {
+    display: flex; align-items: center; gap: 8px; padding: 8px 16px;
+    background: var(--card); border-bottom: 1px solid var(--border);
+  }
+  .header h3 { font-size: 14px; }
+  .header .analysis-type { padding: 2px 8px; border-radius: 10px; font-size: 11px; background: var(--accent); color: #fff; font-weight: 600; }
+  .header .spacer { flex: 1; }
+  .header button {
+    padding: 3px 8px; border: 1px solid var(--border); border-radius: 3px;
+    background: var(--bg); color: var(--fg); cursor: pointer; font-size: 11px;
+  }
+  .header button:hover { background: var(--accent); color: #fff; }
+  .metrics { display: flex; gap: 8px; padding: 8px 16px; flex-wrap: wrap; border-bottom: 1px solid var(--border); }
+  .metric { padding: 6px 12px; background: var(--card); border-radius: 6px; border: 1px solid var(--border); font-size: 12px; }
+  .metric .value { font-weight: 700; font-size: 16px; color: var(--accent); }
+  .metric .label { color: #888; font-size: 10px; text-transform: uppercase; }
+  .trend-up { color: var(--green); }
+  .trend-down { color: #dc3545; }
+  #viz-container { width: 100%; padding: 8px; }
+  #viz-container iframe { width: 100%; height: calc(100vh - 130px); border: none; border-radius: 6px; }
+  #loading { display: flex; align-items: center; justify-content: center; height: 60vh; color: #888; }
+</style>
+</head>
+<body>
+  <div class="header">
+    <h3>Time Series</h3>
+    <span class="analysis-type" id="analysis-type">-</span>
+    <div class="spacer"></div>
+    <button onclick="toggleTheme()">Theme</button>
+    <button onclick="openFull()">Open Full</button>
+  </div>
+  <div class="metrics" id="metrics" style="display: none;"></div>
+  <div id="loading">Run time_series_analysis to visualize temporal patterns</div>
+  <div id="viz-container" style="display: none;"></div>
+
+  <script>
+    let currentHTML = null;
+    const pendingRequests = new Map();
+    let requestId = 0;
+
+    function sendToHost(method, params = {}) {
+      const id = ++requestId;
+      return new Promise((resolve, reject) => {
+        pendingRequests.set(id, { resolve, reject });
+        window.parent.postMessage({ jsonrpc: '2.0', id, method, params }, '*');
+      });
+    }
+
+    window.addEventListener('message', (event) => {
+      const msg = event.data;
+      if (!msg || msg.jsonrpc !== '2.0') return;
+      if (msg.id && pendingRequests.has(msg.id)) {
+        const { resolve, reject } = pendingRequests.get(msg.id);
+        pendingRequests.delete(msg.id);
+        msg.error ? reject(msg.error) : resolve(msg.result);
+        return;
+      }
+      if (msg.method === 'ui/notifications/tool-input') {
+        const input = msg.params?.input;
+        if (input?.html) renderViz(input.html);
+        if (input?.metrics) renderMetrics(input.metrics);
+        if (input?.analysisType) {
+          document.getElementById('analysis-type').textContent = input.analysisType;
+        }
+      }
+    });
+
+    function renderViz(html) {
+      currentHTML = html;
+      const container = document.getElementById('viz-container');
+      document.getElementById('loading').style.display = 'none';
+      container.style.display = 'block';
+      const iframe = document.createElement('iframe');
+      iframe.sandbox = 'allow-scripts allow-same-origin';
+      iframe.srcdoc = html;
+      container.innerHTML = '';
+      container.appendChild(iframe);
+    }
+
+    function renderMetrics(metrics) {
+      const container = document.getElementById('metrics');
+      container.style.display = 'flex';
+      container.innerHTML = Object.entries(metrics).map(([key, val]) => {
+        const trendClass = typeof val === 'string' && val.includes('up') ? 'trend-up' : typeof val === 'string' && val.includes('down') ? 'trend-down' : '';
+        return `<div class="metric"><div class="label">${key}</div><div class="value ${trendClass}">${val}</div></div>`;
+      }).join('');
+    }
+
+    function toggleTheme() {
+      const isDark = document.body.getAttribute('data-theme') === 'dark';
+      document.body.setAttribute('data-theme', isDark ? '' : 'dark');
+    }
+
+    function openFull() {
+      if (!currentHTML) return;
+      const blob = new Blob([currentHTML], { type: 'text/html' });
+      window.open(URL.createObjectURL(blob), '_blank');
+    }
+
+    async function init() {
+      try { await sendToHost('ui/initialize', { capabilities: { acceptsNotifications: true } }); } catch (e) {}
+    }
+    init();
+  </script>
+</body>
+</html>

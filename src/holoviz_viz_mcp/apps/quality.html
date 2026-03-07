@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HoloViz Data Quality</title>
+<style>
+  :root { --bg: #fff; --fg: #1a1a1a; --border: #e0e0e0; --card: #f8f9fa; --accent: #4a90d9; --green: #28a745; --amber: #ff9800; --red: #dc3545; }
+  [data-theme="dark"] { --bg: #1a1a2e; --fg: #e0e0e0; --border: #333; --card: #16213e; --accent: #64b5f6; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--fg); overflow: auto; }
+  .header {
+    display: flex; align-items: center; gap: 8px; padding: 8px 16px;
+    background: var(--card); border-bottom: 1px solid var(--border);
+  }
+  .header h3 { font-size: 14px; flex: 1; }
+  .header button {
+    padding: 3px 8px; border: 1px solid var(--border); border-radius: 3px;
+    background: var(--bg); color: var(--fg); cursor: pointer; font-size: 11px;
+  }
+  .header button:hover { background: var(--accent); color: #fff; }
+  .score-bar {
+    display: flex; align-items: center; gap: 16px; padding: 16px;
+    background: var(--card); border-bottom: 1px solid var(--border);
+  }
+  .score-gauge {
+    width: 80px; height: 80px; border-radius: 50%; display: flex;
+    align-items: center; justify-content: center; font-size: 24px; font-weight: 700;
+    border: 4px solid var(--green);
+  }
+  .score-gauge.amber { border-color: var(--amber); }
+  .score-gauge.red { border-color: var(--red); }
+  .score-details { flex: 1; }
+  .score-details h2 { font-size: 16px; margin-bottom: 4px; }
+  .score-details p { font-size: 12px; color: #888; }
+  .issues { padding: 12px; }
+  .issue-card {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 10px 14px; margin: 6px 0; border-radius: 6px;
+    background: var(--card); border: 1px solid var(--border); font-size: 13px;
+  }
+  .issue-icon { font-size: 16px; margin-top: 1px; }
+  .issue-card .severity-high { color: var(--red); }
+  .issue-card .severity-medium { color: var(--amber); }
+  .issue-card .severity-low { color: var(--green); }
+  .chart-section { padding: 0 12px 12px; }
+  .chart-section iframe { width: 100%; height: 350px; border: none; border-radius: 6px; border: 1px solid var(--border); }
+  #loading { display: flex; align-items: center; justify-content: center; height: 60vh; color: #888; }
+</style>
+</head>
+<body>
+  <div class="header">
+    <h3>Data Quality Report</h3>
+    <button onclick="toggleTheme()">Theme</button>
+  </div>
+  <div id="loading">Run data_quality_report to assess data health</div>
+  <div id="main-content" style="display: none;">
+    <div class="score-bar" id="score-bar"></div>
+    <div class="issues" id="issues"></div>
+    <div class="chart-section" id="chart-section"></div>
+  </div>
+
+  <script>
+    const pendingRequests = new Map();
+    let requestId = 0;
+
+    function sendToHost(method, params = {}) {
+      const id = ++requestId;
+      return new Promise((resolve, reject) => {
+        pendingRequests.set(id, { resolve, reject });
+        window.parent.postMessage({ jsonrpc: '2.0', id, method, params }, '*');
+      });
+    }
+
+    window.addEventListener('message', (event) => {
+      const msg = event.data;
+      if (!msg || msg.jsonrpc !== '2.0') return;
+      if (msg.id && pendingRequests.has(msg.id)) {
+        const { resolve, reject } = pendingRequests.get(msg.id);
+        pendingRequests.delete(msg.id);
+        msg.error ? reject(msg.error) : resolve(msg.result);
+        return;
+      }
+      if (msg.method === 'ui/notifications/tool-input') {
+        const input = msg.params?.input;
+        if (input?.report) renderReport(input.report);
+        if (input?.html) renderChart(input.html);
+        if (input?.score !== undefined) renderScore(input.score, input.shape || '');
+      }
+    });
+
+    function renderScore(score, shape) {
+      const cls = score >= 80 ? '' : score >= 50 ? 'amber' : 'red';
+      const label = score >= 80 ? 'Good' : score >= 50 ? 'Needs Work' : 'Poor';
+      document.getElementById('score-bar').innerHTML = `
+        <div class="score-gauge ${cls}">${Math.round(score)}</div>
+        <div class="score-details">
+          <h2>Quality: ${label}</h2>
+          <p>${shape} | Score ${Math.round(score)}/100</p>
+        </div>
+      `;
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('main-content').style.display = 'block';
+    }
+
+    function renderReport(text) {
+      const container = document.getElementById('issues');
+      const lines = text.split('\n').filter(l => l.trim());
+      container.innerHTML = lines.map(line => {
+        const html = line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        if (line.startsWith('##')) return `<h3 style="margin:14px 0 6px;font-size:14px">${line.replace(/^#+\s*/, '')}</h3>`;
+        if (line.startsWith('#')) return '';
+        const severity = line.includes('missing') || line.includes('outlier') ? 'medium' : 'low';
+        const icon = severity === 'medium' ? '!' : '-';
+        return `<div class="issue-card"><span class="issue-icon severity-${severity}">${icon}</span><span>${html}</span></div>`;
+      }).join('');
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('main-content').style.display = 'block';
+    }
+
+    function renderChart(html) {
+      const container = document.getElementById('chart-section');
+      const iframe = document.createElement('iframe');
+      iframe.sandbox = 'allow-scripts allow-same-origin';
+      iframe.srcdoc = html;
+      container.innerHTML = '';
+      container.appendChild(iframe);
+    }
+
+    function toggleTheme() {
+      const isDark = document.body.getAttribute('data-theme') === 'dark';
+      document.body.setAttribute('data-theme', isDark ? '' : 'dark');
+    }
+
+    async function init() {
+      try { await sendToHost('ui/initialize', { capabilities: { acceptsNotifications: true } }); } catch (e) {}
+    }
+    init();
+  </script>
+</body>
+</html>

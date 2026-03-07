@@ -122,7 +122,7 @@ mcp.tool()(load_session)
 mcp.tool()(generate_large_dataset)
 
 
-# ── MCP Apps: 4 UI resources ─────────────────────────────────────
+# ── MCP Apps: 8 UI resources ─────────────────────────────────────
 
 APPS_DIR = Path(__file__).parent / "apps"
 
@@ -130,6 +130,10 @@ VIZ_HTML = (APPS_DIR / "viz.html").read_text()
 DASHBOARD_HTML = (APPS_DIR / "dashboard.html").read_text()
 STREAM_HTML = (APPS_DIR / "stream.html").read_text()
 CROSSFILTER_HTML = (APPS_DIR / "crossfilter.html").read_text()
+EDA_HTML = (APPS_DIR / "eda.html").read_text()
+STATISTICS_HTML = (APPS_DIR / "statistics.html").read_text()
+TIMESERIES_HTML = (APPS_DIR / "timeseries.html").read_text()
+QUALITY_HTML = (APPS_DIR / "quality.html").read_text()
 
 
 @mcp.resource(
@@ -174,6 +178,50 @@ def stream_resource() -> str:
 )
 def crossfilter_resource() -> str:
     return CROSSFILTER_HTML
+
+
+@mcp.resource(
+    "ui://holoviz/eda",
+    name="EDA Report Viewer",
+    description="Auto-EDA report with tabbed insights and multi-chart exploration",
+    mime_type="text/html",
+    app=True,
+)
+def eda_resource() -> str:
+    return EDA_HTML
+
+
+@mcp.resource(
+    "ui://holoviz/statistics",
+    name="Statistics Viewer",
+    description="Statistical test results with p-value highlights and diagnostic plots",
+    mime_type="text/html",
+    app=True,
+)
+def statistics_resource() -> str:
+    return STATISTICS_HTML
+
+
+@mcp.resource(
+    "ui://holoviz/timeseries",
+    name="Time Series Viewer",
+    description="Time series analysis with metrics, trend decomposition, and anomaly detection",
+    mime_type="text/html",
+    app=True,
+)
+def timeseries_resource() -> str:
+    return TIMESERIES_HTML
+
+
+@mcp.resource(
+    "ui://holoviz/quality",
+    name="Data Quality Viewer",
+    description="Data quality report with score gauge, issue cards, and diagnostic charts",
+    mime_type="text/html",
+    app=True,
+)
+def quality_resource() -> str:
+    return QUALITY_HTML
 
 
 # ── Prompts ───────────────────────────────────────────────────────
@@ -273,6 +321,83 @@ def storytelling_workflow(data_description: str) -> str:
         "5. Add statistical backing with statistical_test where relevant\n"
         "6. Combine into a polished dashboard: create_dashboard(..., template_style='material')\n"
         "7. Export with export_plot for sharing"
+    )
+
+
+@mcp.prompt()
+def time_series_workflow(data_description: str) -> str:
+    """Guide for time series analysis and visualization.
+
+    Args:
+        data_description: Brief description of the time series data
+    """
+    return (
+        f"Analyze time series data: {data_description}\n\n"
+        "Steps:\n"
+        "1. Load the data with load_data or load_sample_data('stocks') / load_sample_data('weather')\n"
+        "2. Run time_series_analysis(dataset, date_col, value_col, analysis='overview') for rolling stats\n"
+        "3. Run time_series_analysis(..., analysis='decomposition') to separate trend/seasonal/residual\n"
+        "4. Run time_series_analysis(..., analysis='change_detection') to find anomalies\n"
+        "5. If multiple series, use analysis='comparison' with group_by parameter\n"
+        "6. Annotate key findings and build a dashboard"
+    )
+
+
+@mcp.prompt()
+def big_data_workflow(data_description: str) -> str:
+    """Guide for visualizing large datasets with datashader.
+
+    Args:
+        data_description: Brief description of the large dataset
+    """
+    return (
+        f"Visualize large dataset: {data_description}\n\n"
+        "Steps:\n"
+        "1. Load data or generate_large_dataset(n_points=100000, distribution='clusters')\n"
+        "2. Use create_datashader_plot(dataset, x_col, y_col) for density visualization\n"
+        "3. Regular plots will be slow for >10K points — datashader rasterizes efficiently\n"
+        "4. Try different colormaps: 'fire', 'inferno', 'viridis', 'blues'\n"
+        "5. For exploration, sample first with transform_data(..., 'sample', limit=1000)\n"
+        "6. Build a dashboard comparing datashader view vs sampled scatter"
+    )
+
+
+@mcp.prompt()
+def comparison_workflow(data_description: str) -> str:
+    """Guide for comparing multiple datasets or groups.
+
+    Args:
+        data_description: Brief description of what to compare
+    """
+    return (
+        f"Compare data: {data_description}\n\n"
+        "Steps:\n"
+        "1. Load both datasets or split with transform_data(dataset, 'filter', ...)\n"
+        "2. Use compare_datasets(dataset_a, dataset_b) for statistical comparison\n"
+        "3. Use statistical_test(dataset, 'ttest', column, group_column=...) to test differences\n"
+        "4. Create side-by-side plots: create_plot for each group\n"
+        "5. Use overlay_plots to combine on shared axes for direct comparison\n"
+        "6. Annotate significant differences and build a comparison dashboard"
+    )
+
+
+@mcp.prompt()
+def dashboard_design_workflow(data_description: str) -> str:
+    """Guide for designing a polished, presentation-ready dashboard.
+
+    Args:
+        data_description: Brief description of the dashboard goal
+    """
+    return (
+        f"Design a dashboard for: {data_description}\n\n"
+        "Steps:\n"
+        "1. Load data and run auto_eda for initial exploration\n"
+        "2. Choose 3-5 complementary views (mix chart types: scatter + bar + line + box)\n"
+        "3. Create each plot with consistent theming (use theme='dark' or 'midnight')\n"
+        "4. Add annotations: thresholds (hline/vline), highlights (hspan/vspan), labels (text)\n"
+        "5. Combine with create_dashboard(plot_ids, template_style='material') for Material Design\n"
+        "6. Try different layouts: 'tabs' for many plots, 'grid' for overview, 'row' for comparison\n"
+        "7. Export with export_plot(plot_id, format='html') for sharing"
     )
 
 

@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HoloViz Auto-EDA</title>
+<style>
+  :root { --bg: #fff; --fg: #1a1a1a; --border: #e0e0e0; --card: #f8f9fa; --accent: #4a90d9; --green: #28a745; --amber: #ff9800; --red: #dc3545; }
+  [data-theme="dark"] { --bg: #1a1a2e; --fg: #e0e0e0; --border: #333; --card: #16213e; --accent: #64b5f6; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--fg); overflow: auto; }
+  .header {
+    display: flex; align-items: center; gap: 8px; padding: 8px 16px;
+    background: var(--card); border-bottom: 1px solid var(--border);
+  }
+  .header h3 { font-size: 14px; }
+  .header .badge { padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+  .header .badge.green { background: var(--green); color: #fff; }
+  .header .badge.amber { background: var(--amber); color: #fff; }
+  .header .spacer { flex: 1; }
+  .header button {
+    padding: 3px 8px; border: 1px solid var(--border); border-radius: 3px;
+    background: var(--bg); color: var(--fg); cursor: pointer; font-size: 11px;
+  }
+  .header button:hover { background: var(--accent); color: #fff; }
+  .tabs { display: flex; border-bottom: 2px solid var(--border); background: var(--card); }
+  .tab { padding: 8px 20px; cursor: pointer; font-size: 13px; border-bottom: 2px solid transparent; margin-bottom: -2px; }
+  .tab.active { border-bottom-color: var(--accent); font-weight: 600; color: var(--accent); }
+  .tab:hover { background: var(--bg); }
+  .tab-content { display: none; padding: 12px; }
+  .tab-content.active { display: block; }
+  .insight-card { padding: 10px 14px; margin: 6px 0; border-left: 3px solid var(--accent); background: var(--card); border-radius: 0 6px 6px 0; font-size: 13px; line-height: 1.5; }
+  .insight-card strong { color: var(--accent); }
+  #viz-frame { width: 100%; height: 500px; border: none; border-radius: 6px; }
+  #loading { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 60vh; color: #888; gap: 8px; }
+  #loading .spinner { width: 24px; height: 24px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+  <div class="header">
+    <h3>Auto-EDA Report</h3>
+    <span class="badge green" id="badge">Ready</span>
+    <div class="spacer"></div>
+    <button onclick="toggleTheme()">Theme</button>
+    <button onclick="openFull()">Open Full</button>
+  </div>
+  <div id="loading">
+    <div class="spinner"></div>
+    <div>Run auto_eda to generate an exploratory analysis</div>
+  </div>
+  <div id="main-content" style="display: none;">
+    <div class="tabs">
+      <div class="tab active" onclick="showTab('insights')">Insights</div>
+      <div class="tab" onclick="showTab('charts')">Charts</div>
+    </div>
+    <div class="tab-content active" id="tab-insights"></div>
+    <div class="tab-content" id="tab-charts">
+      <iframe id="viz-frame" sandbox="allow-scripts allow-same-origin"></iframe>
+    </div>
+  </div>
+
+  <script>
+    let currentHTML = null;
+    const pendingRequests = new Map();
+    let requestId = 0;
+
+    function sendToHost(method, params = {}) {
+      const id = ++requestId;
+      return new Promise((resolve, reject) => {
+        pendingRequests.set(id, { resolve, reject });
+        window.parent.postMessage({ jsonrpc: '2.0', id, method, params }, '*');
+      });
+    }
+
+    window.addEventListener('message', (event) => {
+      const msg = event.data;
+      if (!msg || msg.jsonrpc !== '2.0') return;
+      if (msg.id && pendingRequests.has(msg.id)) {
+        const { resolve, reject } = pendingRequests.get(msg.id);
+        pendingRequests.delete(msg.id);
+        msg.error ? reject(msg.error) : resolve(msg.result);
+        return;
+      }
+      if (msg.method === 'ui/notifications/tool-input') {
+        const input = msg.params?.input;
+        if (input?.html) renderCharts(input.html);
+        if (input?.insights) renderInsights(input.insights);
+      }
+    });
+
+    function renderInsights(text) {
+      const container = document.getElementById('tab-insights');
+      const lines = text.split('\n').filter(l => l.trim());
+      container.innerHTML = lines.map(line => {
+        if (line.startsWith('#')) return `<h3 style="margin:12px 0 6px;font-size:15px">${line.replace(/^#+\s*/, '')}</h3>`;
+        return `<div class="insight-card">${line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')}</div>`;
+      }).join('');
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('main-content').style.display = 'block';
+      document.getElementById('badge').textContent = 'Complete';
+    }
+
+    function renderCharts(html) {
+      currentHTML = html;
+      document.getElementById('viz-frame').srcdoc = html;
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('main-content').style.display = 'block';
+    }
+
+    function showTab(name) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+      event.target.classList.add('active');
+      document.getElementById('tab-' + name).classList.add('active');
+    }
+
+    function toggleTheme() {
+      const isDark = document.body.getAttribute('data-theme') === 'dark';
+      document.body.setAttribute('data-theme', isDark ? '' : 'dark');
+    }
+
+    function openFull() {
+      if (!currentHTML) return;
+      const blob = new Blob([currentHTML], { type: 'text/html' });
+      window.open(URL.createObjectURL(blob), '_blank');
+    }
+
+    async function init() {
+      try { await sendToHost('ui/initialize', { capabilities: { acceptsNotifications: true } }); } catch (e) {}
+    }
+    init();
+  </script>
+</body>
+</html>
