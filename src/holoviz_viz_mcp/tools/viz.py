@@ -284,9 +284,12 @@ def list_plots() -> str:
     lines = []
     for pid, info in plots.items():
         spec = info["spec"]
-        desc = f"{spec['plot_type']} ({spec['x']}"
-        if spec.get("y"):
-            desc += f" vs {spec['y']}"
-        desc += ")"
+        if "plot_type" in spec:
+            desc = f"{spec['plot_type']} ({spec.get('x', '?')}"
+            if spec.get("y"):
+                desc += f" vs {spec['y']}"
+            desc += ")"
+        else:
+            desc = spec.get("type", "custom")
         lines.append(f"- {pid}: {desc} — {info['n_versions']} version(s)")
     return "\n".join(lines)
