@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HoloViz Visualization Viewer</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--background, #ffffff);
+    color: var(--foreground, #1a1a1a);
+    overflow: hidden;
+  }
+  #viz-container {
+    width: 100%;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+  }
+  #viz-container iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    border-radius: 4px;
+  }
+  #loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    font-size: 14px;
+    color: #666;
+  }
+  .error {
+    color: #dc3545;
+    padding: 20px;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+  <div id="loading">Loading visualization...</div>
+  <div id="viz-container" style="display: none;"></div>
+
+  <script>
+    // MCP Apps JSON-RPC communication with host
+    const pendingRequests = new Map();
+    let requestId = 0;
+
+    function sendToHost(method, params = {}) {
+      const id = ++requestId;
+      return new Promise((resolve, reject) => {
+        pendingRequests.set(id, { resolve, reject });
+        window.parent.postMessage(
+          { jsonrpc: '2.0', id, method, params },
+          '*'
+        );
+      });
+    }
+
+    function sendNotification(method, params = {}) {
+      window.parent.postMessage(
+        { jsonrpc: '2.0', method, params },
+        '*'
+      );
+    }
+
+    window.addEventListener('message', (event) => {
+      const msg = event.data;
+      if (!msg || msg.jsonrpc !== '2.0') return;
+
+      // Handle responses to our requests
+      if (msg.id && pendingRequests.has(msg.id)) {
+        const { resolve, reject } = pendingRequests.get(msg.id);
+        pendingRequests.delete(msg.id);
+        if (msg.error) reject(msg.error);
+        else resolve(msg.result);
+        return;
+      }
+
+      // Handle notifications from host
+      if (msg.method === 'ui/notifications/tool-input') {
+        handleToolInput(msg.params);
+      } else if (msg.method === 'ui/notifications/host-context-changed') {
+        applyHostTheme(msg.params);
+      }
+    });
+
+    function handleToolInput(params) {
+      const html = params?.input?.html;
+      if (html) {
+        renderVisualization(html);
+      }
+    }
+
+    function renderVisualization(html) {
+      const container = document.getElementById('viz-container');
+      const loading = document.getElementById('loading');
+
+      // Render Panel HTML in a sandboxed iframe for isolation
+      const iframe = document.createElement('iframe');
+      iframe.sandbox = 'allow-scripts allow-same-origin';
+      iframe.srcdoc = html;
+
+      container.innerHTML = '';
+      container.appendChild(iframe);
+      loading.style.display = 'none';
+      container.style.display = 'flex';
+    }
+
+    function applyHostTheme(params) {
+      const styles = params?.hostContext?.styles;
+      if (styles) {
+        document.body.style.background = styles.background || '#ffffff';
+        document.body.style.color = styles.foreground || '#1a1a1a';
+      }
+    }
+
+    // Initialize: announce to host that we're ready
+    async function init() {
+      try {
+        await sendToHost('ui/initialize', {
+          capabilities: { acceptsNotifications: true }
+        });
+      } catch (e) {
+        // Host may not support ui/initialize — that's OK
+        console.log('MCP Apps init:', e);
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>

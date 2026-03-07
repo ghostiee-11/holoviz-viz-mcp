@@ -1,0 +1,41 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "holoviz-viz-mcp"
+version = "0.3.0"
+description = "MCP server for creating interactive HoloViz visualizations through AI assistants"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+authors = [
+    { name = "Aman Kumar" },
+]
+dependencies = [
+    "fastmcp>=3.1.0",
+    "holoviews>=1.19.0",
+    "hvplot>=0.10.0",
+    "panel>=1.4.0",
+    "bokeh>=3.4.0",
+    "pandas>=2.0.0",
+    "numpy>=1.24.0",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=7.0",
+    "scikit-learn",
+]
+excel = ["openpyxl>=3.0"]
+parquet = ["pyarrow>=12.0"]
+all = ["openpyxl>=3.0", "pyarrow>=12.0"]
+
+[project.scripts]
+holoviz-viz-mcp = "holoviz_viz_mcp.server:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/holoviz_viz_mcp"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
