@@ -1,12 +1,7 @@
 {
   "mcpServers": {
     "holoviz-viz-mcp": {
-      "type": "stdio",
-      "command": "/Library/Frameworks/Python.framework/Versions/3.12/bin/python3",
-      "args": ["-m", "holoviz_viz_mcp"],
-      "env": {
-        "PATH": "/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin"
-      }
+      "command": "holoviz-viz-mcp"
     }
   }
 }
