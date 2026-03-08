@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import base64
-
 from mcp.types import TextContent
 
 from ..rendering import _HTML_DIR, build_viz_response, render_layout_to_html, render_to_png
@@ -53,27 +51,24 @@ def create_dashboard(
     html_path = _HTML_DIR / f"dashboard_{slug}.html"
     html_path.write_text(html)
 
+    # Save PNG to file
+    png_bytes = render_to_png(combined, width=800, height=400 * len(plots))
+    png_note = ""
+    if png_bytes is not None:
+        png_path = _HTML_DIR / f"dashboard_{slug}.png"
+        png_path.write_bytes(png_bytes)
+        png_note = f"\nPNG saved to: {png_path}"
+
     style_note = f" [{template_style} template]" if template_style else ""
-    result: list = [
+    return [
         TextContent(
             type="text",
             text=(
-                f"Created dashboard '{title}' with {len(ids)} plots ({layout} layout{style_note})\n\n"
-                f"Interactive HTML saved to: {html_path}"
+                f"Created dashboard '{title}' with {len(ids)} plots ({layout} layout{style_note})"
+                f"{png_note}\nInteractive HTML saved to: {html_path}"
             ),
         ),
     ]
-
-    png_bytes = render_to_png(combined, width=800, height=400 * len(plots))
-    if png_bytes is not None:
-        from mcp.types import ImageContent
-        result.append(ImageContent(
-            type="image",
-            data=base64.b64encode(png_bytes).decode(),
-            mimeType="image/png",
-        ))
-
-    return result
 
 
 def get_plot_html(plot_id: str) -> str:

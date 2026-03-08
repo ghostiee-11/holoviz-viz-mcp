@@ -7,7 +7,6 @@ external server needed. This is a Panel-native capability.
 
 from __future__ import annotations
 
-import base64
 import io
 from typing import Any
 
@@ -92,17 +91,20 @@ def create_streaming_plot(
     html_path = _HTML_DIR / f"streaming_{plot_id}.html"
     html_path.write_text(html)
 
-    result: list = [
+    # Save PNG to file
+    png_note = ""
+    if png_bytes is not None:
+        png_path = _HTML_DIR / f"streaming_{plot_id}.png"
+        png_path.write_bytes(png_bytes)
+        png_note = f"\nPNG saved to: {png_path}"
+
+    return [
         TextContent(type="text", text=(
             f"Created streaming visualization '{plot_id}'. "
-            f"The HTML updates live every {update_interval}ms.\n\n"
-            f"Interactive HTML saved to: {html_path}"
+            f"The HTML updates live every {update_interval}ms."
+            f"{png_note}\nInteractive HTML saved to: {html_path}"
         )),
     ]
-    if png_bytes is not None:
-        from mcp.types import ImageContent
-        result.append(ImageContent(type="image", data=base64.b64encode(png_bytes).decode(), mimeType="image/png"))
-    return result
 
 
 def _build_streaming_html(

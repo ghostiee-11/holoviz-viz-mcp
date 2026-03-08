@@ -9,7 +9,7 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from mcp.types import ImageContent, TextContent
+from mcp.types import TextContent
 
 logger = logging.getLogger(__name__)
 
@@ -82,20 +82,19 @@ def build_viz_response(
     html_path = _HTML_DIR / f"{slug}.html"
     html_path.write_text(html)
 
-    result: list = [TextContent(
-        type="text",
-        text=f"{text}\n\nInteractive HTML saved to: {html_path}",
-    )]
-
+    # Save PNG to file (avoids exceeding MCP response size limits)
+    png_path = None
     png_bytes = render_to_png(hv_obj, width=width, height=height)
     if png_bytes is not None:
-        result.append(ImageContent(
-            type="image",
-            data=base64.b64encode(png_bytes).decode(),
-            mimeType="image/png",
-        ))
+        png_path = _HTML_DIR / f"{slug}.png"
+        png_path.write_bytes(png_bytes)
 
-    return result
+    msg = text
+    if png_path:
+        msg += f"\n\nPNG saved to: {png_path}"
+    msg += f"\nInteractive HTML saved to: {html_path}"
+
+    return [TextContent(type="text", text=msg)]
 
 
 def render_to_html(hv_obj: Any, width: int = 700, height: int = 450) -> str:
