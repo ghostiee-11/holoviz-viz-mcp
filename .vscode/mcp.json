@@ -1,0 +1,7 @@
+{
+  "servers": {
+    "holoviz-viz-mcp": {
+      "command": "holoviz-viz-mcp"
+    }
+  }
+}
