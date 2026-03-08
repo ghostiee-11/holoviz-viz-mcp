@@ -5,11 +5,17 @@ from __future__ import annotations
 import base64
 import io
 import logging
+import tempfile
+from pathlib import Path
 from typing import Any
 
-from mcp.types import EmbeddedResource, ImageContent, TextContent, TextResourceContents
+from mcp.types import ImageContent, TextContent
 
 logger = logging.getLogger(__name__)
+
+# Directory for saved HTML files
+_HTML_DIR = Path(tempfile.gettempdir()) / "holoviz-viz-mcp-output"
+_HTML_DIR.mkdir(exist_ok=True)
 
 # Cached flag: can we render PNGs? (requires browser + webdriver)
 _png_available: bool | None = None
@@ -62,13 +68,24 @@ def build_viz_response(
     width: int = 700,
     height: int = 450,
 ) -> list:
-    """Build standard MCP tool response: text + optional PNG + interactive HTML.
+    """Build standard MCP tool response: text + PNG + HTML file path.
 
-    Used by all visualization tools for consistent output. Gracefully skips
-    PNG when no headless browser is available.
+    Used by all visualization tools for consistent output. PNG is returned
+    inline for chat display. HTML is saved to a temp file to avoid exceeding
+    MCP response size limits (embedded Bokeh JS can be 20KB+ per plot).
     """
     _ensure_extensions()
-    result: list = [TextContent(type="text", text=text)]
+
+    # Save interactive HTML to temp file
+    html = render_to_html(hv_obj, width=width, height=height)
+    slug = uri.replace("://", "_").replace("/", "_")
+    html_path = _HTML_DIR / f"{slug}.html"
+    html_path.write_text(html)
+
+    result: list = [TextContent(
+        type="text",
+        text=f"{text}\n\nInteractive HTML saved to: {html_path}",
+    )]
 
     png_bytes = render_to_png(hv_obj, width=width, height=height)
     if png_bytes is not None:
@@ -77,12 +94,6 @@ def build_viz_response(
             data=base64.b64encode(png_bytes).decode(),
             mimeType="image/png",
         ))
-
-    html = render_to_html(hv_obj, width=width, height=height)
-    result.append(EmbeddedResource(
-        type="resource",
-        resource=TextResourceContents(uri=uri, mimeType="text/html", text=html),
-    ))
 
     return result
 

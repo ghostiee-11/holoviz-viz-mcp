@@ -16,9 +16,9 @@ import numpy as np
 import pandas as pd
 import panel as pn
 import hvplot.pandas  # noqa: F401
-from mcp.types import EmbeddedResource, TextContent, TextResourceContents
+from mcp.types import TextContent
 
-from ..rendering import render_to_png
+from ..rendering import _HTML_DIR, render_to_png
 from ..state import state
 
 
@@ -88,20 +88,20 @@ def create_streaming_plot(
         dataset_name or "generated",
     )
 
+    # Save HTML to temp file
+    html_path = _HTML_DIR / f"streaming_{plot_id}.html"
+    html_path.write_text(html)
+
     result: list = [
         TextContent(type="text", text=(
             f"Created streaming visualization '{plot_id}'. "
-            f"The HTML output updates live every {update_interval}ms — "
-            f"open it in a browser to see the animation."
+            f"The HTML updates live every {update_interval}ms.\n\n"
+            f"Interactive HTML saved to: {html_path}"
         )),
     ]
     if png_bytes is not None:
         from mcp.types import ImageContent
         result.append(ImageContent(type="image", data=base64.b64encode(png_bytes).decode(), mimeType="image/png"))
-    result.append(EmbeddedResource(
-        type="resource",
-        resource=TextResourceContents(uri=f"viz://plots/{plot_id}", mimeType="text/html", text=html),
-    ))
     return result
 
 

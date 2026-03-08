@@ -6,7 +6,7 @@ import base64
 
 from mcp.types import TextContent
 
-from ..rendering import render_to_html, render_to_png
+from ..rendering import _HTML_DIR, render_to_html, render_to_png
 from ..state import state
 
 
@@ -34,9 +34,10 @@ def export_plot(
 
     if format == "html":
         html = render_to_html(obj, width=w, height=h)
+        html_path = _HTML_DIR / f"export_{plot_id}.html"
+        html_path.write_text(html)
         return [
-            TextContent(type="text", text=f"Exported '{plot_id}' as interactive HTML ({len(html):,} chars)."),
-            TextContent(type="text", text=html),
+            TextContent(type="text", text=f"Exported '{plot_id}' as interactive HTML ({len(html):,} chars).\n\nSaved to: {html_path}"),
         ]
 
     elif format == "png":

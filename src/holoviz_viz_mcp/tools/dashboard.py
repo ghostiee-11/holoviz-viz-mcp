@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import base64
 
-from mcp.types import EmbeddedResource, TextContent, TextResourceContents
+from mcp.types import TextContent
 
-from ..rendering import build_viz_response, render_layout_to_html, render_to_png
+from ..rendering import _HTML_DIR, build_viz_response, render_layout_to_html, render_to_png
 from ..state import state
 
 import holoviews as hv
@@ -48,11 +48,19 @@ def create_dashboard(
         plots, layout=layout, title=title, template_style=template_style
     )
 
+    # Save HTML to temp file
+    slug = title.lower().replace(" ", "-")
+    html_path = _HTML_DIR / f"dashboard_{slug}.html"
+    html_path.write_text(html)
+
     style_note = f" [{template_style} template]" if template_style else ""
     result: list = [
         TextContent(
             type="text",
-            text=f"Created dashboard '{title}' with {len(ids)} plots ({layout} layout{style_note})",
+            text=(
+                f"Created dashboard '{title}' with {len(ids)} plots ({layout} layout{style_note})\n\n"
+                f"Interactive HTML saved to: {html_path}"
+            ),
         ),
     ]
 
@@ -64,15 +72,6 @@ def create_dashboard(
             data=base64.b64encode(png_bytes).decode(),
             mimeType="image/png",
         ))
-
-    result.append(EmbeddedResource(
-        type="resource",
-        resource=TextResourceContents(
-            uri=f"viz://dashboard/{title.lower().replace(' ', '-')}",
-            mimeType="text/html",
-            text=html,
-        ),
-    ))
 
     return result
 
